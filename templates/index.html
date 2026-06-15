@@ -8,806 +8,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
     <!-- html2canvas: แปลงตาราง HTML เป็นรูปภาพ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
-    <style>
-        :root {
-            --bg-base: #0B0F19;
-            --bg-sidebar: #0F1424;
-            --bg-surface: rgba(22, 30, 49, 0.7);
-            --bg-surface-hover: rgba(30, 41, 67, 0.9);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-primary: #F3F4F6;
-            --text-secondary: #9CA3AF;
-            --text-muted: #6B7280;
-            
-            --color-morning-primary: #F59E0B;
-            --color-morning-gradient: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-            --color-morning-glow: rgba(245, 158, 11, 0.15);
-            
-            --color-an-primary: #6366F1;
-            --color-an-gradient: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
-            --color-an-glow: rgba(99, 102, 241, 0.15);
-            
-            --color-success: #10B981;
-            --color-error: #EF4444;
-            --color-warning: #F59E0B;
-            --color-info: #3B82F6;
-            
-            --font-sans: 'Inter', 'Noto Sans Thai', sans-serif;
-            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: var(--font-sans);
-            background-color: var(--bg-base);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            overflow: hidden;
-            background-image: 
-                radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
-                radial-gradient(at 90% 80%, rgba(245, 158, 11, 0.03) 0px, transparent 50%);
-        }
-
-        /* Sidebar Navigation */
-        .sidebar {
-            width: 280px;
-            background-color: var(--bg-sidebar);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            flex-shrink: 0;
-            z-index: 10;
-        }
-
-        .sidebar-brand {
-            padding: 2rem 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .brand-icon {
-            width: 2.25rem;
-            height: 2.25rem;
-            background: var(--color-an-gradient);
-            border-radius: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-        }
-
-        .brand-icon svg {
-            width: 1.25rem;
-            height: 1.25rem;
-            fill: #FFF;
-        }
-
-        .brand-name {
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: -0.025em;
-            background: linear-gradient(135deg, #FFF 0%, #9CA3AF 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .nav-menu {
-            list-style: none;
-            padding: 1.5rem 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            flex: 1;
-        }
-
-        .nav-item {
-            width: 100%;
-        }
-
-        .nav-link {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.85rem 1rem;
-            color: var(--text-secondary);
-            text-decoration: none;
-            border-radius: 0.75rem;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            border: 1px solid transparent;
-        }
-
-        .nav-link:hover {
-            color: var(--text-primary);
-            background-color: rgba(255, 255, 255, 0.03);
-        }
-
-        .nav-link.active {
-            color: var(--text-primary);
-            background-color: rgba(99, 102, 241, 0.1);
-            border-color: rgba(99, 102, 241, 0.2);
-        }
-
-        .nav-link svg {
-            width: 1.25rem;
-            height: 1.25rem;
-            fill: currentColor;
-            opacity: 0.8;
-        }
-
-        .sidebar-footer {
-            padding: 1.5rem;
-            border-top: 1px solid var(--border-color);
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
-
-        /* Main Content Area */
-        .content-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow-y: auto;
-            position: relative;
-        }
-
-        header {
-            background-color: rgba(11, 15, 25, 0.4);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-color);
-            padding: 1.25rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 5;
-        }
-
-        header h1 {
-            font-size: 1.35rem;
-            font-weight: 600;
-        }
-
-        header p {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-
-        /* Tab Content Switching */
-        .tab-content {
-            display: none;
-            padding: 2rem;
-            max-width: 1400px;
-            width: 100%;
-            margin: 0 auto;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Shared Dashboard Panels & Grids */
-        .dashboard-header-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.25rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-        }
-
-        .stat-icon {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 0.75rem;
-            background: rgba(99, 102, 241, 0.1);
-            color: var(--color-an-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .stat-icon svg {
-            width: 1.5rem;
-            height: 1.5rem;
-            fill: currentColor;
-        }
-
-        .stat-number {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            line-height: 1;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-label {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-
-        /* Buttons & Actions */
-        .btn {
-            border: 1px solid transparent;
-            padding: 0.65rem 1.25rem;
-            border-radius: 0.5rem;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            transition: var(--transition-smooth);
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background: var(--color-an-gradient);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
-        }
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
-        }
-
-        .btn-secondary {
-            background-color: rgba(255, 255, 255, 0.04);
-            border-color: var(--border-color);
-        }
-        .btn-secondary:hover {
-            background-color: rgba(255, 255, 255, 0.08);
-        }
-
-        .btn-danger {
-            background-color: rgba(239, 68, 68, 0.15);
-            border-color: rgba(239, 68, 68, 0.3);
-            color: #FFA3A3;
-        }
-        .btn-danger:hover {
-            background-color: rgba(239, 68, 68, 0.25);
-        }
-
-        .action-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        /* Shift Grid / Dashboard */
-        .shifts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.25rem;
-        }
-
-        .shift-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-        }
-
-        .shift-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            transition: var(--transition-smooth);
-        }
-
-        .shift-card.shift-morning::before {
-            background: var(--color-morning-gradient);
-        }
-
-        .shift-card.shift-an::before {
-            background: var(--color-an-gradient);
-        }
-
-        .shift-card:hover {
-            transform: translateY(-4px);
-            background: var(--bg-surface-hover);
-            box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-
-        .card-date {
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        .card-badge {
-            font-size: 0.72rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.375rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .shift-morning .card-badge {
-            background-color: rgba(245, 158, 11, 0.1);
-            color: var(--color-morning-primary);
-            border: 1px solid rgba(245, 158, 11, 0.2);
-        }
-
-        .shift-an .card-badge {
-            background-color: rgba(99, 102, 241, 0.1);
-            color: var(--color-an-primary);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-        }
-
-        .card-details {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-
-        .card-status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.8rem;
-            font-weight: 600;
-            padding: 0.3rem 0.65rem;
-            border-radius: 2rem;
-            width: fit-content;
-        }
-
-        .card-status-pill.completed {
-            background-color: rgba(16, 185, 129, 0.08);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            color: var(--color-success);
-        }
-
-        .card-status-pill.pending {
-            background-color: rgba(245, 158, 11, 0.08);
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            color: var(--color-warning);
-        }
-
-        /* Modal Dialog Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(11, 15, 25, 0.8);
-            backdrop-filter: blur(8px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: var(--transition-smooth);
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        .modal {
-            background: var(--bg-sidebar);
-            border: 1px solid var(--border-color);
-            border-radius: 1.25rem;
-            width: 100%;
-            max-width: 520px;
-            padding: 2rem;
-            box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
-            transform: scale(0.95);
-            transition: var(--transition-smooth);
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .modal-overlay.active .modal {
-            transform: scale(1);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .form-label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .form-input {
-            background: rgba(0, 0, 0, 0.25);
-            border: 1px solid var(--border-color);
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            color: var(--text-primary);
-            font-family: inherit;
-            outline: none;
-            transition: var(--transition-smooth);
-        }
-
-        .form-input:focus {
-            border-color: var(--color-an-primary);
-            box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
-        }
-
-        .form-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.75rem;
-            margin-top: 0.5rem;
-        }
-
-        /* Workspace Grid (Shift Room Tab) */
-        .workspace {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 2rem;
-        }
-
-        @media (max-width: 1100px) {
-            .workspace {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .panel {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 1rem;
-            padding: 1.75rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .panel-header {
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .panel-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .copy-block {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-color);
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-        }
-
-        .copy-text {
-            font-family: monospace;
-            font-size: 0.9rem;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            max-height: 220px;
-            overflow-y: auto;
-        }
-
-        textarea {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-color);
-            border-radius: 0.75rem;
-            color: var(--text-primary);
-            padding: 1rem;
-            font-family: monospace;
-            font-size: 0.9rem;
-            line-height: 1.5;
-            resize: vertical;
-            min-height: 180px;
-            outline: none;
-            transition: var(--transition-smooth);
-        }
-
-        textarea:focus {
-            border-color: var(--color-an-primary);
-        }
-
-        .shift-morning textarea:focus {
-            border-color: var(--color-morning-primary);
-        }
-
-        /* Live Preview Grid Map */
-        .preview-grid-wrapper {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-color);
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .preview-row {
-            display: grid;
-            grid-template-columns: 80px 120px 1fr;
-            align-items: center;
-            padding: 0.65rem 0.5rem;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-        }
-
-        .preview-row:nth-child(even) {
-            background: rgba(255, 255, 255, 0.01);
-        }
-
-        .preview-slot-id {
-            font-weight: 700;
-            color: var(--text-secondary);
-        }
-
-        .preview-slot-name {
-            font-weight: 600;
-            color: var(--text-primary);
-            background: rgba(255, 255, 255, 0.04);
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            display: inline-block;
-            text-align: center;
-            min-width: 60px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: var(--transition-smooth);
-        }
-
-        .preview-slot-name.filled {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--color-success);
-            border-color: rgba(16, 185, 129, 0.25);
-            font-weight: 700;
-            box-shadow: 0 0 8px rgba(16, 185, 129, 0.05);
-        }
-
-        .preview-slot-desc {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            padding-left: 1rem;
-        }
-
-        /* Employee Live Checklist Status */
-        .employees-status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-            gap: 0.5rem;
-        }
-
-        .emp-status-card {
-            border-radius: 0.5rem;
-            padding: 0.5rem 0.75rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.25rem;
-            font-size: 0.8rem;
-            font-weight: 500;
-            border: 1px solid var(--border-color);
-            background: rgba(255, 255, 255, 0.02);
-            transition: var(--transition-smooth);
-        }
-
-        .emp-status-card.mapped {
-            background-color: rgba(16, 185, 129, 0.06);
-            border-color: rgba(16, 185, 129, 0.2);
-            color: var(--color-success);
-        }
-
-        .emp-status-card.missing {
-            background-color: rgba(245, 158, 11, 0.04);
-            border-color: rgba(245, 158, 11, 0.15);
-            color: var(--color-warning);
-        }
-
-        .emp-status-card.error {
-            background-color: rgba(239, 68, 68, 0.06);
-            border-color: rgba(239, 68, 68, 0.2);
-            color: var(--color-error);
-        }
-
-        .emp-name {
-            font-weight: 700;
-            font-size: 0.95rem;
-        }
-
-        .status-pill {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        .status-pill.success {
-            background-color: rgba(16, 185, 129, 0.08);
-            color: var(--color-success);
-        }
-
-        .status-pill.warning {
-            background-color: rgba(245, 158, 11, 0.08);
-            color: var(--color-warning);
-        }
-
-        /* Toasts & Loaders */
-        .toast-container {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .toast {
-            background: rgba(22, 30, 49, 0.95);
-            border: 1px solid var(--border-color);
-            border-left: 4px solid var(--color-info);
-            color: var(--text-primary);
-            padding: 1rem 1.5rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-            transform: translateX(120%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            min-width: 300px;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        .toast.success { border-left-color: var(--color-success); }
-        .toast.error { border-left-color: var(--color-error); }
-        .toast.warning { border-left-color: var(--color-warning); }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(11, 15, 25, 0.7);
-            backdrop-filter: blur(4px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            opacity: 0;
-            pointer-events: none;
-            transition: var(--transition-smooth);
-        }
-
-        .loading-overlay.active {
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        .spinner {
-            width: 3.5rem;
-            height: 3.5rem;
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-top: 4px solid var(--color-an-primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Custom styles for Hourly Log Editing */
-        .log-cell-color-picker {
-            position: absolute;
-            background: #FFFFFF;
-            border: 1px solid #D0D4DC;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            padding: 8px;
-            display: none;
-            gap: 6px;
-            z-index: 10000;
-            pointer-events: auto;
-        }
-        .log-color-btn {
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
-            border: 1px solid #D0D4DC;
-            cursor: pointer;
-            transition: transform 0.1s ease;
-        }
-        .log-color-btn:hover {
-            transform: scale(1.15);
-        }
-        .log-task-cell.editing-active {
-            cursor: text;
-        }
-        .log-task-cell.editing-active:hover {
-            background-color: rgba(99, 102, 241, 0.05) !important;
-            outline: 1px dashed #4F46E5;
-        }
-        .log-task-cell.editing-active:focus {
-            outline: 2px solid #4F46E5 !important;
-            background-color: rgba(99, 102, 241, 0.1) !important;
-        }
-    </style>
 </head>
 <body>
 
-    <!-- Sidebar Layout -->
+<div class="app-layout">
+    <!-- Sidebar (Desktop / Tablet) -->
     <nav class="sidebar">
         <div class="sidebar-brand">
             <div class="brand-icon">
@@ -822,13 +31,13 @@
             <li class="nav-item">
                 <a id="nav-dashboard" class="nav-link active" onclick="switchTab('dashboard')">
                     <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14H5v-2h5v2zm0-4H5v-2h5v2zm0-4H5V5h5v2zm9 8h-7v-2h7v2zm0-4h-7v-2h7v2zm0-4h-7V5h7v2z"/></svg>
-                    หน้าหลัก / ตารางเวร
+                    <span>หน้าหลัก / ตารางเวร</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a id="nav-shiftroom" class="nav-link" style="display: none;" onclick="switchTab('shiftroom')">
                     <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                    ห้องจัดเวรปัจจุบัน
+                    <span>ห้องจัดเวรปัจจุบัน</span>
                 </a>
             </li>
 
@@ -841,7 +50,7 @@
 
     <!-- Main Content Area -->
     <div class="content-area">
-        <header>
+        <header class="app-header">
             <div>
                 <h1 id="page-title">ตารางเวรทั้งหมด</h1>
                 <p id="page-subtitle">ดูประวัติเวรและสร้างคิวจัดเวรพนักงาน</p>
@@ -865,7 +74,7 @@
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--color-success);">
+                    <div class="stat-icon success">
                         <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
                     </div>
                     <div>
@@ -875,13 +84,13 @@
                 </div>
             </div>
 
-            <div class="action-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                <div class="section-title" style="margin-bottom: 0;">ตารางเวลาการจัดเวรทั้งหมด</div>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <button class="btn btn-secondary" style="background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #4F46E5; font-weight: 600;" onclick="viewHourlyLog('template:M8/A14')">
+            <div class="action-bar">
+                <div class="section-title">ตารางเวลาการจัดเวรทั้งหมด</div>
+                <div class="action-bar-actions">
+                    <button class="btn btn-secondary btn-accent-an" onclick="viewHourlyLog('template:M8/A14')">
                         📋 Morning Master Log
                     </button>
-                    <button class="btn btn-secondary" style="background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #4F46E5; font-weight: 600;" onclick="viewHourlyLog('template:A+N')">
+                    <button class="btn btn-secondary btn-accent-an" onclick="viewHourlyLog('template:A+N')">
                         📋 Afternoon/Night Master Log
                     </button>
                     <button class="btn btn-primary" onclick="openCreateShiftModal()">
@@ -903,17 +112,30 @@
         </div>
 
     </div>
+</div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" aria-label="เมนูหลัก">
+        <button type="button" id="mobile-nav-dashboard" class="mobile-nav-item active" onclick="switchTab('dashboard')">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14H5v-2h5v2zm0-4H5v-2h5v2zm0-4H5V5h5v2zm9 8h-7v-2h7v2zm0-4h-7v-2h7v2zm0-4h-7V5h7v2z"/></svg>
+            หน้าหลัก
+        </button>
+        <button type="button" id="mobile-nav-shiftroom" class="mobile-nav-item hidden-nav" onclick="switchTab('shiftroom')">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            ห้องจัดเวร
+        </button>
+    </nav>
 
     <!-- Modals -->
     <!-- Create Shift Modal -->
     <div id="create-shift-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'create-shift-modal')">
-        <div class="modal" style="max-width: 800px; width: 90%;">
+        <div class="modal modal-lg">
             <div class="modal-header">
                 <div class="modal-title">สร้างวันจัดเวรใหม่</div>
-                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="closeModal('create-shift-modal')">✖</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('create-shift-modal')">✖</button>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div class="modal-grid-2">
                 <!-- Left: Form inputs -->
                 <div>
                     <div class="form-group">
@@ -929,7 +151,7 @@
                         </select>
                     </div>
 
-                    <div id="create-shift-team-helper" style="margin-top: -0.5rem; margin-bottom: 1rem; font-size: 0.85rem; font-weight: 600; padding: 0.5rem; border-radius: 0.375rem; display: none; align-items: center; gap: 0.35rem;">
+                    <div id="create-shift-team-helper" class="team-helper">
                         <!-- Updated dynamically -->
                     </div>
 
@@ -940,22 +162,22 @@
 
                     <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label">ลำดับคิวพนักงาน (ระบบแนะนำคิวให้อัตโนมัติ - พิมพ์ชื่อย่อใหม่เพิ่มได้ ระบบจะบันทึกลงฐานข้อมูลอัตโนมัติ บรรทัดละคน)</label>
-                        <textarea id="shift-queue-input" class="form-input" style="min-height: 250px; font-family: monospace; font-size: 0.95rem; line-height: 1.4;" placeholder="พิมพ์รายชื่อพนักงาน บรรทัดละคน..."></textarea>
+                        <textarea id="shift-queue-input" class="form-input mono" style="min-height: 250px;" placeholder="พิมพ์รายชื่อพนักงาน บรรทัดละคน..."></textarea>
                     </div>
                 </div>
 
                 <!-- Right: Reference panel -->
-                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 1rem; color: #E5E7EB;">
-                    <div style="font-weight: 700; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem; color: #10B981; display: flex; align-items: center; gap: 0.5rem;">
+                <div class="ref-panel">
+                    <div class="ref-panel-title">
                         📅 ข้อมูลเวรก่อนหน้า (อ้างอิง)
                     </div>
                     <div id="prev-shift-ref-details" style="font-size: 0.9rem; line-height: 1.6;">
                         <!-- Filled dynamically -->
                     </div>
-                    <div style="font-weight: 600; font-size: 0.85rem; color: #9CA3AF;">
+                    <div class="form-label" style="margin-bottom: 0;">
                         คิวทำงานเวรก่อนหน้า (13 คน):
                     </div>
-                    <div id="prev-shift-ref-queue" style="background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.375rem; font-family: monospace; font-size: 0.9rem; line-height: 1.5; color: #34D399; max-height: 180px; overflow-y: auto; white-space: pre-line; border: 1px solid rgba(255,255,255,0.05);">
+                    <div id="prev-shift-ref-queue" class="ref-queue-box">
                         <!-- Filled dynamically -->
                     </div>
 
@@ -971,29 +193,29 @@
 
     <!-- Hourly Log Modal -->
     <div id="hourly-log-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'hourly-log-modal')">
-        <div class="modal" style="max-width: 95%; width: 1400px; max-height: 90vh; overflow-y: auto; background: #FFFFFF; color: #000000; border: 1px solid #D0D4DC;">
-            <div class="modal-header" style="position: sticky; top: 0; background: #FFFFFF; padding-bottom: 1rem; border-bottom: 1px solid #D0D4DC; z-index: 10; display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal modal-log modal-xl">
+            <div class="modal-header">
                 <div>
-                    <div class="modal-title" id="hourly-log-title" style="color: #000000; font-weight: 700;">ตารางชั่วโมงการทำงาน (Hourly Log)</div>
-                    <div style="font-size: 0.85rem; color: #4B5563; margin-top: 0.25rem;" id="hourly-log-subtitle"></div>
+                    <div class="modal-title" id="hourly-log-title">ตารางชั่วโมงการทำงาน (Hourly Log)</div>
+                    <div class="modal-log-subtitle" id="hourly-log-subtitle"></div>
                 </div>
-                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                    <button class="btn btn-secondary" id="btn-open-new-tab-log" style="padding: 0.25rem 0.75rem; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #059669; font-weight: 600;" onclick="openLogNewTab()">🔗 เปิดในแท็บใหม่ (เต็มจอ)</button>
-                    <button class="btn btn-secondary" id="btn-download-log-img" style="padding: 0.25rem 0.75rem; background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.4); color: #B45309; font-weight: 600;" onclick="downloadLogAsImage()">📥 ดาวน์โหลดรูป</button>
-                    <button class="btn btn-secondary" id="btn-edit-hourly-log" style="padding: 0.25rem 0.75rem; background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.3); color: #4F46E5; font-weight: 600;" onclick="toggleEditLogMode()">✏️ แก้ไขตาราง Log</button>
-                    <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; background: #F3F4F6; border-color: #D0D4DC; color: #000000;" onclick="closeModal('hourly-log-modal')">✖ ปิดหน้าต่าง</button>
+                <div class="modal-log-toolbar">
+                    <button class="btn btn-secondary btn-sm btn-accent-success" id="btn-open-new-tab-log" onclick="openLogNewTab()">🔗 <span class="btn-label">เปิดในแท็บใหม่</span></button>
+                    <button class="btn btn-secondary btn-sm btn-accent-warning" id="btn-download-log-img" onclick="downloadLogAsImage()">📥 <span class="btn-label">ดาวน์โหลดรูป</span></button>
+                    <button class="btn btn-secondary btn-sm btn-accent-an" id="btn-edit-hourly-log" onclick="toggleEditLogMode()">✏️ <span class="btn-label">แก้ไขตาราง Log</span></button>
+                    <button class="btn btn-secondary btn-sm" onclick="closeModal('hourly-log-modal')">✖ <span class="btn-label">ปิด</span></button>
                 </div>
             </div>
             
-            <div style="overflow-x: auto; margin-top: 1rem; border-radius: 0.5rem; border: 1px solid #D0D4DC; background: #FFFFFF;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 1200px; font-size: 0.85rem; background: #FFFFFF; color: #000000;" id="hourly-log-table">
+            <div class="log-table-wrap">
+                <table id="hourly-log-table">
                     <!-- Generated dynamically -->
                 </table>
             </div>
 
-            <div class="modal-footer" id="hourly-log-footer" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #D0D4DC; display: none; justify-content: flex-end; gap: 0.5rem;">
-                <button class="btn btn-secondary" style="background: #F3F4F6; border-color: #D0D4DC; color: #000000;" onclick="cancelEditLogMode()">ยกเลิก</button>
-                <button class="btn btn-primary" style="background: #4F46E5; border-color: #4F46E5; color: #FFFFFF;" onclick="saveCustomLogToServer()">💾 บันทึกตาราง Log</button>
+            <div class="modal-log-footer" id="hourly-log-footer">
+                <button class="btn btn-secondary" onclick="cancelEditLogMode()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="saveCustomLogToServer()">💾 บันทึกตาราง Log</button>
             </div>
         </div>
     </div>
@@ -1142,10 +364,14 @@
             // Deactivate old active tab
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.mobile-nav-item').forEach(el => el.classList.remove('active'));
 
             // Activate new
             document.getElementById(`tab-${tabName}`).classList.add('active');
-            document.getElementById(`nav-${tabName}`).classList.add('active');
+            const navEl = document.getElementById(`nav-${tabName}`);
+            if (navEl) navEl.classList.add('active');
+            const mobileNavEl = document.getElementById(`mobile-nav-${tabName}`);
+            if (mobileNavEl) mobileNavEl.classList.add('active');
             activeTab = tabName;
 
             const title = document.getElementById('page-title');
@@ -1224,66 +450,53 @@
             monthGroups.forEach(group => {
                 const section = document.createElement('div');
                 section.className = 'month-section';
-                section.style.marginBottom = '2.5rem';
 
                 const header = document.createElement('h3');
                 header.className = 'month-header';
-                header.style.fontSize = '1.3rem';
-                header.style.fontWeight = '700';
-                header.style.color = '#1F2937';
-                header.style.marginBottom = '1.25rem';
-                header.style.paddingBottom = '0.5rem';
-                header.style.borderBottom = '2px solid #E5E7EB';
-                header.style.display = 'flex';
-                header.style.alignItems = 'center';
-                header.style.gap = '0.5rem';
                 header.innerHTML = `📅 ${group.label}`;
                 
                 section.appendChild(header);
 
                 const cardsGrid = document.createElement('div');
                 cardsGrid.className = 'shifts-month-grid';
-                cardsGrid.style.display = 'grid';
-                cardsGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
-                cardsGrid.style.gap = '1.25rem';
 
                 group.shifts.forEach(shift => {
                     const isMorning = shift.shift_type === 'M8/A14';
                     const cardClass = isMorning ? 'shift-morning' : 'shift-an';
                     const card = document.createElement('div');
-                    card.className = `shift-card ${cardClass}`;
                     
                     const team = getTeamForDate(shift.date, shift.shift_type);
                     let teamBadge = '';
+                    let teamClass = 'team-neutral';
                     if (team === 'purple') {
-                        card.style.borderLeft = '5px solid #A855F7';
-                        teamBadge = `<span style="background: rgba(168, 85, 247, 0.15); color: #7E22CE; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 700; border: 1px solid rgba(168, 85, 247, 0.3); display: inline-flex; align-items: center; gap: 0.2rem;">🟣 ทีมสีม่วง</span>`;
+                        teamClass = 'team-purple';
+                        teamBadge = `<span class="team-badge purple">🟣 ม่วง</span>`;
                     } else if (team === 'green') {
-                        card.style.borderLeft = '5px solid #10B981';
-                        teamBadge = `<span style="background: rgba(16, 185, 129, 0.15); color: #065F46; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 700; border: 1px solid rgba(16, 185, 129, 0.3); display: inline-flex; align-items: center; gap: 0.2rem;">🟢 ทีมสีเขียว</span>`;
-                    } else {
-                        card.style.borderLeft = '5px solid #9CA3AF';
+                        teamClass = 'team-green';
+                        teamBadge = `<span class="team-badge green">🟢 เขียว</span>`;
                     }
 
+                    card.className = `shift-card ${cardClass} ${teamClass}`;
+
                     card.innerHTML = `
-                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <div class="card-header">
                             <div class="card-date">${shift.date_display}</div>
-                            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                            <div class="card-badges">
                                 ${teamBadge}
-                                <div class="card-badge">${isMorning ? 'กะเช้า' : 'กะบ่ายดึก'}</div>
+                                <div class="card-badge">${isMorning ? 'เช้า' : 'บ่ายดึก'}</div>
                             </div>
                         </div>
                         <div class="card-details">
-                            <div>Supervisor: <strong>${shift.supervisor || 'ไม่ได้ระบุ'}</strong></div>
-                            <div>คิวพนักงานในกะ: <strong>${shift.queue ? shift.queue.length : 0} คน</strong></div>
+                            <div class="card-meta-supervisor">Sup: <strong>${shift.supervisor || '-'}</strong></div>
+                            <div class="card-meta-queue">คิว: <strong>${shift.queue ? shift.queue.length : 0}</strong></div>
                             <div class="card-status-pill ${shift.is_completed === 1 ? 'completed' : 'pending'}">
-                                ${shift.is_completed === 1 ? '🟢 จัดเวรสำเร็จแล้ว' : '🔴 ยังจัดเวรไม่เสร็จ'}
+                                ${shift.is_completed === 1 ? '🟢 สำเร็จ' : '🔴 ค้างอยู่'}
                             </div>
                         </div>
-                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                            <button class="btn btn-primary" style="flex: 1; padding: 0.5rem;" onclick="selectShiftById(${shift.id})">ห้องจัดเวร</button>
-                            <button class="btn btn-secondary" style="padding: 0.5rem; background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3);" onclick="viewHourlyLog(${shift.id})">📋 ดูตาราง Log</button>
-                            <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteShift(${shift.id})">ลบ</button>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" title="ห้องจัดเวร" onclick="selectShiftById(${shift.id})">จัดเวร</button>
+                            <button class="btn btn-secondary btn-accent-an" title="ดูตาราง Log" onclick="viewHourlyLog(${shift.id})">📋</button>
+                            <button class="btn btn-danger" title="ลบตารางเวร" onclick="deleteShift(${shift.id})">ลบ</button>
                         </div>
                     `;
                     cardsGrid.appendChild(card);
@@ -1311,10 +524,8 @@
             // Reset Edit button and footer states when modal opens
             const editBtn = document.getElementById('btn-edit-hourly-log');
             if (editBtn) {
-                editBtn.innerHTML = '✏️ แก้ไขตาราง Log';
-                editBtn.style.background = 'rgba(99, 102, 241, 0.1)';
-                editBtn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-                editBtn.style.color = '#4F46E5';
+                editBtn.innerHTML = '✏️ <span class="btn-label">แก้ไขตาราง Log</span>';
+                editBtn.className = 'btn btn-secondary btn-sm btn-accent-an';
             }
             const footer = document.getElementById('hourly-log-footer');
             if (footer) footer.style.display = 'none';
@@ -1539,10 +750,8 @@
                 
                 // Show footer, update edit button text/styling
                 footer.style.display = 'flex';
-                editBtn.innerHTML = '✏️ โหมดแก้ไขกำลังทำงาน';
-                editBtn.style.background = '#FEF3C7';
-                editBtn.style.borderColor = '#F59E0B';
-                editBtn.style.color = '#D97706';
+                editBtn.innerHTML = '✏️ <span class="btn-label">โหมดแก้ไขกำลังทำงาน</span>';
+                editBtn.className = 'btn btn-secondary btn-sm btn-accent-warning';
                 
                 // Make cells editable
                 const cells = document.querySelectorAll('.log-task-cell');
@@ -1568,12 +777,9 @@
             const editBtn = document.getElementById('btn-edit-hourly-log');
             const footer = document.getElementById('hourly-log-footer');
             footer.style.display = 'none';
-            editBtn.innerHTML = '✏️ แก้ไขตาราง Log';
-            editBtn.style.background = 'rgba(99, 102, 241, 0.1)';
-            editBtn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-            editBtn.style.color = '#4F46E5';
+            editBtn.innerHTML = '✏️ <span class="btn-label">แก้ไขตาราง Log</span>';
+            editBtn.className = 'btn btn-secondary btn-sm btn-accent-an';
             
-            // Hide color picker
             hideColorPicker();
         }
 
@@ -1697,10 +903,8 @@
                 const footer = document.getElementById('hourly-log-footer');
                 if (footer) footer.style.display = 'none';
                 if (editBtn) {
-                    editBtn.innerHTML = '✏️ แก้ไขตาราง Log';
-                    editBtn.style.background = 'rgba(99, 102, 241, 0.1)';
-                    editBtn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-                    editBtn.style.color = '#4F46E5';
+                    editBtn.innerHTML = '✏️ <span class="btn-label">แก้ไขตาราง Log</span>';
+                    editBtn.className = 'btn btn-secondary btn-sm btn-accent-an';
                 }
                 
                 // Reload modal data to make sure everything matches and is no longer contenteditable
@@ -1900,9 +1104,14 @@
                 Object.keys(empInlineOTMap).forEach(k => delete empInlineOTMap[k]);
             }
             
-            // Show the Shift Room link in the sidebar
+            // Show the Shift Room link in sidebar + mobile nav
             const shiftRoomLink = document.getElementById('nav-shiftroom');
             shiftRoomLink.style.display = 'flex';
+            const mobileShiftNav = document.getElementById('mobile-nav-shiftroom');
+            if (mobileShiftNav) {
+                mobileShiftNav.classList.remove('hidden-nav');
+                mobileShiftNav.style.display = 'flex';
+            }
 
             if (navigate) switchTab('shiftroom');
             
@@ -1961,27 +1170,25 @@
                         </div>
                     </div>
                     <div class="copy-block">
-                        <div class="copy-text" id="line-copy-text-box" style="white-space: pre-wrap; font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; font-size: 0.95rem; line-height: 1.4; color: #111827; background: #FFFFFF; padding: 1rem; border: 1px solid #D0D4DC; border-radius: 0.375rem;"></div>
+                        <div class="copy-text" id="line-copy-text-box"></div>
                     </div>
-                    <button class="btn btn-primary" onclick="copyLineTextToClipboard()" style="width: 100%; margin-top: 0.75rem;">
+                    <button class="btn btn-primary btn-block" onclick="copyLineTextToClipboard()">
                         คัดลอกข้อความส่ง Line
                     </button>
 
                     <!-- Attendance & Leave/OT Controls -->
-                    <div style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1.5rem;">
-                        <div class="form-label" style="font-weight: bold; font-size: 1rem; color: #FFFFFF; margin-bottom: 1rem;">
+                    <div class="attendance-section">
+                        <div class="attendance-section-title">
                             ⚙️ จัดการวันลาและพนักงานแทน (OT)
                         </div>
                         
-                        <!-- Section A: Queue Attendance -->
-                        <div style="margin-bottom: 1.5rem;">
-                            <div style="font-size: 0.85rem; color: #9CA3AF; margin-bottom: 0.5rem; font-weight: 600;">พนักงานในเวรหลัก (Queue Attendance)</div>
-                            <div class="attendance-queue-list" id="attendance-queue-list" style="display: flex; flex-direction: column; gap: 0.50rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <div class="attendance-subtitle">พนักงานในเวรหลัก (Queue Attendance)</div>
+                            <div class="attendance-queue-list" id="attendance-queue-list">
                                 <!-- Rendered dynamically -->
                             </div>
                         </div>
                         
-                        <!-- Hidden OT inputs (used by updateCombinedOTs & syncOTInputsFromShiftOTs internally) -->
                         <div style="display:none;">
                             <input type="text" id="attendance-ot-input" oninput="updateCombinedOTs()">
                             <input type="text" id="attendance-ot-morning-input" oninput="updateCombinedOTs()">
@@ -2008,7 +1215,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">วางข้อความเลือกเวรที่คัดลอกมาจาก Line:</label>
-                        <textarea id="line-paste-input" style="min-height: 120px;" placeholder="ตัวอย่าง:&#10;KJ 1&#10;PR 3&#10;BP 2&#10;SN W/S A14&#10;..." oninput="onLineResultsChange()"></textarea>
+                        <textarea id="line-paste-input" placeholder="ตัวอย่าง:&#10;KJ 1&#10;PR 3&#10;BP 2&#10;SN W/S A14&#10;..." oninput="onLineResultsChangeDebounced()"></textarea>
                     </div>
 
                     <div class="parser-results">
@@ -2021,19 +1228,20 @@
                         </div>
                     </div>
 
-                    <!-- Live Preview Grid -->
-                    <div class="form-group" style="margin-top: 1.5rem;">
+                    <div class="form-group">
                         <label class="form-label">ตารางตำแหน่งจัดเวรจำลอง:</label>
                         <div class="preview-grid-wrapper" id="preview-grid-wrapper">
                             <!-- Populated reactively -->
                         </div>
                     </div>
 
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
-                        <button class="btn btn-primary" id="save-selections-btn" style="width: 100%; padding: 1rem; font-size: 1rem;" onclick="saveSelectionsToDB()">
-                            บันทึกผลการจัดเวรลงฐานข้อมูล
-                        </button>
-                        <button class="btn btn-secondary" style="width: 100%; padding: 0.75rem; font-size: 0.95rem; background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3);" onclick="viewHourlyLog(${shift.id})">
+                    <div class="shift-room-actions">
+                        <div class="shift-room-save-bar">
+                            <button class="btn btn-primary btn-block" id="save-selections-btn" onclick="saveSelectionsToDB()">
+                                บันทึกผลการจัดเวรลงฐานข้อมูล
+                            </button>
+                        </div>
+                        <button class="btn btn-secondary btn-block btn-accent-an" onclick="viewHourlyLog(${shift.id})">
                             📋 ดูตารางชั่วโมงการทำงาน (Log)
                         </button>
                     </div>
@@ -2328,6 +1536,18 @@
             }
         }
 
+        function getLeaveSelectClass(leaveType) {
+            if (leaveType === 'active') return 'select-active';
+            if (leaveType === 'full') return 'select-leave-full';
+            return 'select-leave-half';
+        }
+
+        function getMorningNameClass(leaveType) {
+            if (leaveType === 'active') return 'attendance-name active';
+            if (leaveType === 'full') return 'attendance-name leave-full';
+            return 'attendance-name leave-half';
+        }
+
         function renderAttendanceControls() {
             if (!selectedShift) return;
             const wsInitials = (selectedShift.supervisor || '').match(/[A-Z]{2}/g) || [];
@@ -2351,12 +1571,7 @@
 
                 listToRender.forEach(emp => {
                     const row = document.createElement('div');
-                    row.style.display = 'flex';
-                    row.style.justifyContent = 'space-between';
-                    row.style.alignItems = 'center';
-                    row.style.padding = '0.5rem 0.75rem';
-                    row.style.borderRadius = '0.375rem';
-                    row.style.border = '1px solid rgba(255,255,255,0.05)';
+                    row.className = 'attendance-row';
                     
                     if (wsInitials.includes(emp)) {
                         // Supervisor Attendance Control
@@ -2385,31 +1600,26 @@
                                 ];
                             }
                             
-                            let selectStyle = '';
-                            if (leaveType === 'active') selectStyle = 'border-color: rgba(16, 185, 129, 0.4); color: #10B981; background: rgba(16, 185, 129, 0.05);';
-                            else if (leaveType === 'full') selectStyle = 'border-color: rgba(239, 68, 68, 0.4); color: #EF4444; background: rgba(239, 68, 68, 0.05);';
-                            else selectStyle = 'border-color: rgba(245, 158, 11, 0.4); color: #F59E0B; background: rgba(245, 158, 11, 0.05);';
+                            const selectClass = getLeaveSelectClass(leaveType);
+                            const nameClass = getMorningNameClass(leaveType);
 
-                            // Build inline OT input for the active leave type
                             const activeOTSlot = wsOTInputIds.find(s => s.showWhen === leaveType);
                             const inlineOTHtml = (leaveType !== 'active' && activeOTSlot) ? `
                                 <input type="text"
-                                    class="form-input"
+                                    class="form-input ot-inline"
                                     placeholder="${activeOTSlot.label}"
                                     value="${document.getElementById(activeOTSlot.id)?.value || ''}"
-                                    style="width:90px; padding:0.2rem 0.4rem; font-size:0.78rem; border-radius:0.25rem; font-family:monospace; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#FFF;"
                                     oninput="document.getElementById('${activeOTSlot.id}').value=this.value.trim().toUpperCase(); updateCombinedOTs();">
                             ` : '';
                             
-                            row.style.background = 'rgba(255, 255, 255, 0.03)';
-                            row.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                            row.classList.add('supervisor');
                             row.innerHTML = `
                                 <div>
-                                    <span style="font-weight: bold; color: ${leaveType === 'active' ? '#E5E7EB' : (leaveType === 'full' ? '#EF4444' : '#F59E0B')}; ${leaveType === 'full' ? 'text-decoration: line-through;' : ''}">${emp}</span>
-                                    <span class="status-badge" style="font-size: 0.7rem; background: rgba(99, 102, 241, 0.15); color: #818CF8; padding: 0.1rem 0.35rem; border-radius: 0.25rem; margin-left: 0.5rem; font-weight: 600;">${badgeText}</span>
+                                    <span class="${nameClass}">${emp}</span>
+                                    <span class="status-badge">${badgeText}</span>
                                 </div>
-                                <div style="display:flex; gap:0.4rem; align-items:center;">
-                                    <select class="form-input" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; ${selectStyle}" onchange="changeShiftLeave('${emp}', this.value)">
+                                <div class="attendance-controls">
+                                    <select class="form-input select-sm ${selectClass}" onchange="changeShiftLeave('${emp}', this.value)">
                                         <option value="active" ${leaveType === 'active' ? 'selected' : ''}>🟢 ทำงาน</option>
                                         <option value="full" ${leaveType === 'full' ? 'selected' : ''}>🔴 ลาเต็มวัน</option>
                                         <option value="half-morning" ${leaveType === 'half-morning' ? 'selected' : ''}>🌅 ลาครึ่งเช้า</option>
@@ -2422,28 +1632,25 @@
                             // A+N shift: W/S N supervisor
                             const leaveType = shiftLeaves[emp] || 'active';
                             let badgeText = 'W/S N';
-                            let selectStyle = '';
-                            if (leaveType === 'active') selectStyle = 'border-color: rgba(16, 185, 129, 0.4); color: #10B981; background: rgba(16, 185, 129, 0.05);';
-                            else selectStyle = 'border-color: rgba(239, 68, 68, 0.4); color: #EF4444; background: rgba(239, 68, 68, 0.05);';
+                            const selectClass = getLeaveSelectClass(leaveType);
+                            const nameClass = leaveType === 'active' ? 'attendance-name active' : 'attendance-name leave-full';
                             
                             const wsNInlineOT = leaveType === 'full' ? `
                                 <input type="text"
-                                    class="form-input"
+                                    class="form-input ot-inline"
                                     placeholder="OT แทน W/S N"
                                     value="${document.getElementById('attendance-ws-n-ot-input')?.value || ''}"
-                                    style="width:90px; padding:0.2rem 0.4rem; font-size:0.78rem; border-radius:0.25rem; font-family:monospace; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#FFF;"
                                     oninput="document.getElementById('attendance-ws-n-ot-input').value=this.value.trim().toUpperCase(); updateCombinedOTs();">
                             ` : '';
                             
-                            row.style.background = 'rgba(255, 255, 255, 0.03)';
-                            row.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                            row.classList.add('supervisor');
                             row.innerHTML = `
                                 <div>
-                                    <span style="font-weight: bold; color: ${leaveType === 'active' ? '#E5E7EB' : '#EF4444'}; ${leaveType === 'full' ? 'text-decoration: line-through;' : ''}">${emp}</span>
-                                    <span class="status-badge" style="font-size: 0.7rem; background: rgba(99, 102, 241, 0.15); color: #818CF8; padding: 0.1rem 0.35rem; border-radius: 0.25rem; margin-left: 0.5rem; font-weight: 600;">${badgeText}</span>
+                                    <span class="${nameClass}">${emp}</span>
+                                    <span class="status-badge">${badgeText}</span>
                                 </div>
-                                <div style="display:flex; gap:0.4rem; align-items:center;">
-                                    <select class="form-input" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; ${selectStyle}" onchange="changeShiftLeave('${emp}', this.value)">
+                                <div class="attendance-controls">
+                                    <select class="form-input select-sm ${selectClass}" onchange="changeShiftLeave('${emp}', this.value)">
                                         <option value="active" ${leaveType === 'active' ? 'selected' : ''}>🟢 ทำงาน</option>
                                         <option value="full" ${leaveType === 'full' ? 'selected' : ''}>🔴 ลาเต็มวัน</option>
                                     </select>
@@ -2457,12 +1664,9 @@
                         const isMorning = selectedShift.shift_type === 'M8/A14';
                         
                         if (isMorning) {
-                            let selectStyle = '';
-                            if (leaveType === 'active') selectStyle = 'border-color: rgba(16, 185, 129, 0.4); color: #10B981; background: rgba(16, 185, 129, 0.05);';
-                            else if (leaveType === 'full') selectStyle = 'border-color: rgba(239, 68, 68, 0.4); color: #EF4444; background: rgba(239, 68, 68, 0.05);';
-                            else selectStyle = 'border-color: rgba(245, 158, 11, 0.4); color: #F59E0B; background: rgba(245, 158, 11, 0.05);';
+                            const selectClass = getLeaveSelectClass(leaveType);
+                            const nameClass = getMorningNameClass(leaveType);
 
-                            // Determine which hidden OT input to sync to based on leave type
                             const otInputMap = {
                                 'full':           { id: 'attendance-ot-input',          label: 'OT แทน (เต็มวัน)' },
                                 'half-morning':   { id: 'attendance-ot-morning-input',   label: 'OT แทน (ครึ่งเช้า)' },
@@ -2471,19 +1675,18 @@
                             const otSlot = otInputMap[leaveType];
                             const inlineOTHtml = otSlot ? `
                                 <input type="text"
-                                    class="form-input"
+                                    class="form-input ot-inline"
                                     data-ot-for="${emp}"
                                     data-ot-target="${otSlot.id}"
                                     placeholder="${otSlot.label}"
                                     value="${getInlineOTValue(emp, leaveType)}"
-                                    style="width:90px; padding:0.2rem 0.4rem; font-size:0.78rem; border-radius:0.25rem; font-family:monospace; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#FFF;"
                                     oninput="setInlineOT('${emp}', '${leaveType}', this.value)">
                             ` : '';
 
                             row.innerHTML = `
-                                <span style="font-weight: bold; color: ${leaveType === 'active' ? '#10B981' : (leaveType === 'full' ? '#EF4444' : '#F59E0B')}; ${leaveType === 'full' ? 'text-decoration: line-through;' : ''}">${emp}</span>
-                                <div style="display:flex; gap:0.4rem; align-items:center;">
-                                    <select class="form-input" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; ${selectStyle}" onchange="changeShiftLeave('${emp}', this.value)">
+                                <span class="${nameClass}">${emp}</span>
+                                <div class="attendance-controls">
+                                    <select class="form-input select-sm ${selectClass}" onchange="changeShiftLeave('${emp}', this.value)">
                                         <option value="active" ${leaveType === 'active' ? 'selected' : ''}>🟢 ทำงาน</option>
                                         <option value="full" ${leaveType === 'full' ? 'selected' : ''}>🔴 ลาเต็มวัน</option>
                                         <option value="half-morning" ${leaveType === 'half-morning' ? 'selected' : ''}>🌅 ลาครึ่งเช้า</option>
@@ -2499,72 +1702,50 @@
                             const shiftN = st.shift === 'N';
                             const onLeave = st.onLeave;
 
-                            // Row background color based on state
-                            row.style.background = 'rgba(255,255,255,0.03)';
-                            row.style.borderColor = 'rgba(255,255,255,0.05)';
-                            if (onLeave && !shiftA && !shiftN) {
-                                row.style.background = 'rgba(239, 68, 68, 0.08)';
-                                row.style.borderColor = 'rgba(239, 68, 68, 0.2)';
-                            } else if (onLeave && shiftA) {
-                                row.style.background = 'rgba(16, 185, 129, 0.06)';
-                                row.style.borderColor = 'rgba(239, 68, 68, 0.25)';
-                            } else if (onLeave && shiftN) {
-                                row.style.background = 'rgba(99, 102, 241, 0.06)';
-                                row.style.borderColor = 'rgba(239, 68, 68, 0.25)';
-                            }
+                            if (onLeave && !shiftA && !shiftN) row.classList.add('leave-only');
+                            else if (onLeave && shiftA) row.classList.add('leave-an-a');
+                            else if (onLeave && shiftN) row.classList.add('leave-an-n');
 
-                            // Name color
-                            let nameColor = '#E5E7EB';
-                            if (shiftA && onLeave) nameColor = '#F59E0B'; // Amber: A + ลา
-                            else if (shiftN && onLeave) nameColor = '#F59E0B';
-                            else if (shiftA) nameColor = '#10B981'; // Green: A only
-                            else if (shiftN) nameColor = '#6366F1'; // Indigo: N only
-                            else if (onLeave) nameColor = '#EF4444'; // Red: ลา only
+                            let nameClass = 'attendance-name';
+                            if (shiftA && onLeave) nameClass = 'attendance-name leave-an';
+                            else if (shiftN && onLeave) nameClass = 'attendance-name leave-an';
+                            else if (shiftA) nameClass = 'attendance-name shift-a';
+                            else if (shiftN) nameClass = 'attendance-name shift-n';
+                            else if (onLeave) nameClass = 'attendance-name leave-full';
 
-                            // Badge label
                             let badge = '';
-                            if (shiftA && onLeave) badge = '<span style="font-size:0.68rem;background:rgba(245,158,11,0.18);color:#F59E0B;padding:0.1rem 0.35rem;border-radius:0.25rem;margin-left:0.4rem;font-weight:700;">A + ลา</span>';
-                            else if (shiftN && onLeave) badge = '<span style="font-size:0.68rem;background:rgba(245,158,11,0.18);color:#F59E0B;padding:0.1rem 0.35rem;border-radius:0.25rem;margin-left:0.4rem;font-weight:700;">N + ลา</span>';
-                            else if (onLeave) badge = '<span style="font-size:0.68rem;background:rgba(239,68,68,0.18);color:#EF4444;padding:0.1rem 0.35rem;border-radius:0.25rem;margin-left:0.4rem;font-weight:700;">ลา</span>';
+                            if (shiftA && onLeave) badge = '<span class="state-badge an-leave">A + ลา</span>';
+                            else if (shiftN && onLeave) badge = '<span class="state-badge an-leave">N + ลา</span>';
+                            else if (onLeave) badge = '<span class="state-badge leave-only">ลา</span>';
 
-                            const btnAStyle = shiftA
-                                ? 'background: #10B981; color: #fff; border-color: #10B981; font-weight: bold;'
-                                : 'background: rgba(16,185,129,0.05); color: #10B981; border-color: rgba(16,185,129,0.3);';
+                            const btnAClass = shiftA ? 'shift-toggle-btn active-a' : 'shift-toggle-btn inactive-a';
+                            const btnNClass = shiftN ? 'shift-toggle-btn active-n' : 'shift-toggle-btn inactive-n';
+                            const btnLClass = onLeave ? 'shift-toggle-btn active-leave' : 'shift-toggle-btn inactive-leave';
 
-                            const btnNStyle = shiftN
-                                ? 'background: #6366F1; color: #fff; border-color: #6366F1; font-weight: bold;'
-                                : 'background: rgba(99,102,241,0.05); color: #6366F1; border-color: rgba(99,102,241,0.3);';
-
-                            const btnLStyle = onLeave
-                                ? 'background: #EF4444; color: #fff; border-color: #EF4444; font-weight: bold;'
-                                : 'background: rgba(239,68,68,0.05); color: #EF4444; border-color: rgba(239,68,68,0.3);';
-
-                            // Inline OT input when on leave
                             const anOTTargetId = shiftA ? 'attendance-ot-a-input' : (shiftN ? 'attendance-ot-n-input' : 'attendance-ot-a-input');
                             const anOTLeaveKey = shiftA ? 'an-leave-a' : (shiftN ? 'an-leave-n' : 'an-leave');
                             const anOTPlaceholder = shiftA ? 'OT แทน (กะบ่าย)' : (shiftN ? 'OT แทน (กะดึก)' : 'OT แทน');
                             const anInlineOTHtml = onLeave ? `
                                 <input type="text"
-                                    class="form-input"
+                                    class="form-input ot-inline"
                                     placeholder="${anOTPlaceholder}"
                                     value="${getInlineOTValue(emp, anOTLeaveKey)}"
-                                    style="width:90px; padding:0.2rem 0.4rem; font-size:0.78rem; border-radius:0.25rem; font-family:monospace; background:rgba(255,255,255,0.06); border:1px solid rgba(239,68,68,0.35); color:#FFF;"
                                     oninput="setAnInlineOT('${emp}', '${anOTLeaveKey}', '${anOTTargetId}', this.value)">
                             ` : '';
 
                             row.innerHTML = `
                                 <div style="display:flex;align-items:center;gap:0.3rem;">
-                                    <span style="font-weight: bold; color: ${nameColor};">${emp}</span>
+                                    <span class="${nameClass}">${emp}</span>
                                     ${badge}
                                 </div>
-                                <div style="display: flex; gap: 0.35rem; align-items:center; flex-wrap:wrap;">
-                                    <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; ${btnAStyle}" onclick="changeShiftLeave('${emp}', 'A')">
+                                <div class="attendance-controls">
+                                    <button class="btn btn-secondary ${btnAClass}" onclick="changeShiftLeave('${emp}', 'A')">
                                         บ่าย (A)
                                     </button>
-                                    <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; ${btnNStyle}" onclick="changeShiftLeave('${emp}', 'N')">
+                                    <button class="btn btn-secondary ${btnNClass}" onclick="changeShiftLeave('${emp}', 'N')">
                                         ดึก (N)
                                     </button>
-                                    <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; ${btnLStyle}" onclick="changeShiftLeave('${emp}', 'leave')">
+                                    <button class="btn btn-secondary ${btnLClass}" onclick="changeShiftLeave('${emp}', 'leave')">
                                         ลา
                                     </button>
                                     ${anInlineOTHtml}
@@ -2914,6 +2095,13 @@
                 }
             }
             return choice;
+        }
+
+        let lineParserDebounceTimer = null;
+
+        function onLineResultsChangeDebounced() {
+            clearTimeout(lineParserDebounceTimer);
+            lineParserDebounceTimer = setTimeout(onLineResultsChange, 150);
         }
 
         // Live Parser for database shift room
@@ -3494,20 +2682,15 @@
             const team = getTeamForDate(dateVal, typeVal);
             helperDiv.style.display = 'flex';
             
+            helperDiv.className = 'team-helper';
             if (team === 'purple') {
-                helperDiv.style.backgroundColor = 'rgba(168, 85, 247, 0.15)';
-                helperDiv.style.color = '#7E22CE';
-                helperDiv.style.border = '1px solid rgba(168, 85, 247, 0.3)';
+                helperDiv.classList.add('purple');
                 helperDiv.innerHTML = '🟣 ทีมที่ปฏิบัติหน้าที่ตามเงื่อนไข: <strong>ทีมสีม่วง</strong>';
             } else if (team === 'green') {
-                helperDiv.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
-                helperDiv.style.color = '#065F46';
-                helperDiv.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+                helperDiv.classList.add('green');
                 helperDiv.innerHTML = '🟢 ทีมที่ปฏิบัติหน้าที่ตามเงื่อนไข: <strong>ทีมสีเขียว</strong>';
             } else {
-                helperDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                helperDiv.style.color = '#EF4444';
-                helperDiv.style.border = '1px solid rgba(239, 68, 68, 0.2)';
+                helperDiv.classList.add('off-day');
                 helperDiv.innerHTML = '❌ ไม่อยู่ในเงื่อนไขรอบเวรทำงานตามปฏิทิน (คาดว่าเป็นวันพัก/วันหยุด)';
             }
         }
