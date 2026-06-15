@@ -8,3 +8,5 @@ venv/
 *.db
 shiftflow.db
 .tools/
+github_ssh_key.pub
+github_ssh_setup.txt
