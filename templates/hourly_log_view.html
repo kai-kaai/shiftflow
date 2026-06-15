@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ดูตาราง Log (Full Screen)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #F9FAFB;
+            --text-color: #111827;
+            --border-color: #E5E7EB;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-container {
+            width: 100%;
+            max-width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            color: #1F2937;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: #4B5563;
+            margin-top: 0.25rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 0.375rem;
+            border: 1px solid #D1D5DB;
+            background-color: #FFFFFF;
+            color: #374151;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .btn:hover {
+            background-color: #F9FAFB;
+            border-color: #C5C7CC;
+        }
+
+        .btn-primary {
+            background-color: #4F46E5;
+            border-color: #4F46E5;
+            color: #FFFFFF;
+        }
+
+        .btn-primary:hover {
+            background-color: #4338CA;
+            border-color: #4338CA;
+        }
+
+        .table-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            background: #FFFFFF;
+            border: 1px solid #D0D4DC;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            padding: 1.5rem;
+            box-sizing: border-box;
+        }
+
+        table {
+            width: 100%;
+            min-width: 1200px;
+            border-collapse: collapse;
+            font-family: "Calibri", "Segoe UI", Arial, sans-serif;
+            background: #FFFFFF;
+            color: #000000;
+            margin: 0 auto;
+        }
+
+        table td {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+        }
+
+        .loading {
+            font-size: 1.2rem;
+            color: #6B7280;
+            margin-top: 5rem;
+        }
+
+        @media print {
+            body {
+                background-color: #FFFFFF;
+                padding: 0;
+            }
+            .header-container {
+                display: none;
+            }
+            .table-container {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loading" id="loading-indicator">กำลังดาวน์โหลดข้อมูลตารางเวร...</div>
+
+    <div class="table-container" id="table-container" style="display: none;">
+        <table id="hourly-log-table"></table>
+    </div>
+
+    <script>
+        // Parse Query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const shiftId = urlParams.get('id');
+
+        if (!shiftId) {
+            document.getElementById('loading-indicator').innerText = "ข้อผิดพลาด: ไม่พบ ID ของตารางเวร";
+        } else {
+            loadHourlyLogData(shiftId);
+        }
+
+        function getCleanInitials(fullName) {
+            if (!fullName) return '';
+            const match = fullName.trim().toUpperCase().match(/^[A-Z]{2,3}/);
+            return match ? match[0] : fullName.trim().toUpperCase();
+        }
+
+        function loadHourlyLogData(id) {
+            let fetchUrl = `/api/shifts/${id}/hourly-log`;
+            if (id.startsWith('template:')) {
+                const typeSlug = id.split(':')[1].replace('/', '_').replace('+', '_');
+                fetchUrl = `/api/templates/${typeSlug}/hourly-log`;
+            }
+
+            fetch(fetchUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error("ไม่สามารถโหลดประวัติตารางเวรนี้ได้");
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
+
+                    // Update browser tab title
+                    document.title = `Log Table - ${data.date_display} (${data.shift_type})`;
+
+                    // Render Table
+                    renderTable(data);
+
+                    // Toggle Visibility
+                    document.getElementById('loading-indicator').style.display = 'none';
+                    document.getElementById('table-container').style.display = 'block';
+                })
+                .catch(err => {
+                    document.getElementById('loading-indicator').innerText = `เกิดข้อผิดพลาด: ${err.message}`;
+                });
+        }
+
+        function renderTable(data) {
+            const table = document.getElementById('hourly-log-table');
+            table.innerHTML = '';
+
+            const isMorning = data.shift_type === 'M8/A14';
+            const tbody = document.createElement('tbody');
+
+            // Original high-fidelity styles from templates/index.html modal
+            const dateHeaderFontSize = '24pt';
+            const dateHeaderPadding = '10px 0';
+            const headerFontSize = '11pt';
+            const headerPadding = '8px';
+            const slotFontSize = '11pt';
+            const slotPadding = '8px';
+            const empFontSize = '11pt';
+            const empPadding = '8px';
+            const taskFontSize = isMorning ? '10pt' : '14pt';
+            const taskPadding = '8px';
+
+            if (isMorning) {
+                table.style.maxWidth = '1400px';
+                // --- MORNING LAYOUT ---
+                // 1. Date Header Row
+                const r1 = document.createElement('tr');
+                r1.innerHTML = `
+                    <td colspan="14" style="padding: ${dateHeaderPadding}; font-weight: bold; font-size: ${dateHeaderFontSize}; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
+                        M8 ${data.date_display}
+                    </td>
+                `;
+                tbody.appendChild(r1);
+
+                // 2. Hours Headers Row
+                const r2 = document.createElement('tr');
+                const displayHours = data.hours.slice(0, 12);
+                r2.innerHTML = `
+                    <td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: ${headerFontSize}; width: 100px; min-width: 100px;"></td>
+                    <td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-right: 2px solid #000000; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: ${headerFontSize}; width: 100px; min-width: 100px;"></td>
+                    ${displayHours.map((h, i) => {
+                        const isLast = (i === displayHours.length - 1);
+                        const borderRight = isLast ? '2px solid #000000' : '1px solid #A6A6A6';
+                        return `<td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-right: ${borderRight}; border-bottom: 2px solid #000000; text-align: center; font-weight: normal; font-size: ${headerFontSize}; min-width: 100px; width: 100px;">${h}</td>`;
+                    }).join('')}
+                `;
+                tbody.appendChild(r2);
+
+                // 3. Data Rows
+                data.rows.forEach((row, rIdx) => {
+                    const tr = document.createElement('tr');
+                    const isLastRow = (rIdx === data.rows.length - 1);
+                    const borderBottom = isLastRow ? '2px solid #000000' : '1px solid #A6A6A6';
+
+                    const slotCell = `<td style="padding: ${slotPadding}; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: ${slotFontSize}; background: ${row.slot_bg || '#FFFFFF'}; color: #000000;">${row.slot}</td>`;
+                    const empCell = `<td style="padding: ${empPadding}; border-right: 2px solid #000000; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: ${empFontSize}; background: ${row.employee_bg || '#FFFFFF'}; color: #000000;">${row.employee || ''}</td>`;
+
+                    let hourlyCells = '';
+                    if (row.slot === 'W/S M8') {
+                        const mergeCellVal = row.cells[0]?.value || '';
+                        const bgMergeColor = row.cells[0]?.bg_color || '';
+                        const bgMerge = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                        hourlyCells = `<td colspan="12" style="padding: ${taskPadding}; text-align: center; font-size: ${taskFontSize}; font-weight: bold; ${bgMerge} color: #000000; border-right: 2px solid #000000; border-bottom: ${borderBottom};">${mergeCellVal}</td>`;
+                    } else {
+                        const displayCells = row.cells.slice(0, 12);
+                        hourlyCells = displayCells.map((cell, cIdx) => {
+                            const isLastCol = (cIdx === displayCells.length - 1);
+                            const borderRight = isLastCol ? '2px solid #000000' : '1px solid #A6A6A6';
+                            const bgMergeColor = cell.bg_color || '';
+                            const bg = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                            return `<td style="padding: ${taskPadding}; text-align: center; font-size: ${taskFontSize}; font-weight: normal; ${bg} color: #000000; border-right: ${borderRight}; border-bottom: ${borderBottom};">${cell.value || ''}</td>`;
+                        }).join('');
+                    }
+
+                    tr.innerHTML = slotCell + empCell + hourlyCells;
+                    tbody.appendChild(tr);
+                });
+
+            } else {
+                table.style.maxWidth = '1700px';
+                // --- AFTERNOON/NIGHT LAYOUT ---
+                // 1. Afternoon Date Header Row
+                const r1 = document.createElement('tr');
+                r1.innerHTML = `
+                    <td colspan="${data.hours.length + 2}" style="padding: ${dateHeaderPadding}; font-weight: bold; font-size: ${dateHeaderFontSize}; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
+                        A ${data.date_display}
+                    </td>
+                `;
+                tbody.appendChild(r1);
+
+                // 2. Afternoon Hours Headers Row
+                const r2 = document.createElement('tr');
+                r2.innerHTML = `
+                    <td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: ${headerFontSize}; width: 100px; min-width: 100px;"></td>
+                    <td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-right: 2px solid #000000; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: ${headerFontSize}; width: 100px; min-width: 100px;"></td>
+                    ${data.hours.map((h, i) => {
+                        const isLast = (i === data.hours.length - 1);
+                        const borderRight = isLast ? '2px solid #000000' : '1px solid #A6A6A6';
+                        return `<td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-right: ${borderRight}; border-bottom: 2px solid #000000; text-align: center; font-weight: normal; font-size: ${headerFontSize}; min-width: 100px; width: 100px;">${h}</td>`;
+                    }).join('')}
+                `;
+                tbody.appendChild(r2);
+
+                // 3. Afternoon slots
+                const afternoonRows = data.rows.slice(0, 6);
+                afternoonRows.forEach((row, rIdx) => {
+                    const tr = document.createElement('tr');
+                    const isLastRow = (rIdx === afternoonRows.length - 1);
+                    const borderBottom = isLastRow ? '2px solid #000000' : '1px solid #A6A6A6';
+
+                    const slotCell = `<td style="padding: ${slotPadding}; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: ${slotFontSize}; background: ${row.slot_bg || '#FFFFFF'}; color: #000000;">${row.slot}</td>`;
+                    const empCell = `<td style="padding: ${empPadding}; border-right: 2px solid #000000; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: ${empFontSize}; background: ${row.employee_bg || '#FFFFFF'}; color: #000000;">${row.employee || ''}</td>`;
+
+                    const hourlyCells = row.cells.map((cell, cIdx) => {
+                        const isLastCol = (cIdx === row.cells.length - 1);
+                        const borderRight = isLastCol ? '2px solid #000000' : '1px solid #A6A6A6';
+                        const bgMergeColor = cell.bg_color || '';
+                        const bg = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                        return `<td style="padding: ${taskPadding}; text-align: center; font-size: ${taskFontSize}; font-weight: normal; ${bg} color: #000000; border-right: ${borderRight}; border-bottom: ${borderBottom};">${cell.value || ''}</td>`;
+                    }).join('');
+
+                    tr.innerHTML = slotCell + empCell + hourlyCells;
+                    tbody.appendChild(tr);
+                });
+
+                // 4. Night Date Header Row
+                const r3 = document.createElement('tr');
+                r3.innerHTML = `
+                    <td colspan="${data.hours.length + 2}" style="padding: ${dateHeaderPadding}; font-weight: bold; font-size: ${dateHeaderFontSize}; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
+                        N ${data.date_display}
+                    </td>
+                `;
+                tbody.appendChild(r3);
+
+                // 5. Night Hours Headers Row
+                const r4 = document.createElement('tr');
+                r4.innerHTML = `
+                    <td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: ${headerFontSize}; width: 100px; min-width: 100px;"></td>
+                    <td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-right: 2px solid #000000; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: ${headerFontSize}; width: 100px; min-width: 100px;"></td>
+                    ${data.hours.map((h, i) => {
+                        const isLast = (i === data.hours.length - 1);
+                        const borderRight = isLast ? '2px solid #000000' : '1px solid #A6A6A6';
+                        return `<td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-right: ${borderRight}; border-bottom: 2px solid #000000; text-align: center; font-weight: normal; font-size: ${headerFontSize}; min-width: 100px; width: 100px;">${h}</td>`;
+                    }).join('')}
+                `;
+                tbody.appendChild(r4);
+
+                // 6. Night slots
+                const nightRows = data.rows.slice(6);
+                nightRows.forEach((row, rIdx) => {
+                    const tr = document.createElement('tr');
+                    const isLastRow = (rIdx === nightRows.length - 1);
+                    const borderBottom = isLastRow ? '2px solid #000000' : '1px solid #A6A6A6';
+
+                    const slotCell = `<td style="padding: ${slotPadding}; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: ${slotFontSize}; background: ${row.slot_bg || '#FFFFFF'}; color: #000000;">${row.slot}</td>`;
+                    const empCell = `<td style="padding: ${empPadding}; border-right: 2px solid #000000; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: ${empFontSize}; background: ${row.employee_bg || '#FFFFFF'}; color: #000000;">${row.employee || ''}</td>`;
+
+                    let hourlyCells = '';
+                    if (row.slot === 'W/S N') {
+                        const normalCells = row.cells.slice(0, 3).map((cell, cIdx) => {
+                            const borderRight = '1px solid #A6A6A6';
+                            const bgMergeColor = cell.bg_color || '';
+                            const bg = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                            return `<td style="padding: ${taskPadding}; text-align: center; font-size: ${taskFontSize}; font-weight: normal; ${bg} color: #000000; border-right: ${borderRight}; border-bottom: ${borderBottom};">${cell.value || ''}</td>`;
+                        }).join('');
+
+                        const mergeCellVal = row.cells[3]?.value || '';
+                        const bgMergeColor = row.cells[3]?.bg_color || '';
+                        const bgMerge = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                        const mergedCell = `<td colspan="${data.hours.length - 3}" style="padding: ${taskPadding}; text-align: center; font-size: ${taskFontSize}; font-weight: bold; ${bgMerge} color: #000000; border-right: 2px solid #000000; border-bottom: ${borderBottom};">${mergeCellVal}</td>`;
+
+                        hourlyCells = normalCells + mergedCell;
+                    } else {
+                        hourlyCells = row.cells.map((cell, cIdx) => {
+                            const isLastCol = (cIdx === row.cells.length - 1);
+                            const borderRight = isLastCol ? '2px solid #000000' : '1px solid #A6A6A6';
+                            const bgMergeColor = cell.bg_color || '';
+                            const bg = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                            return `<td style="padding: ${taskPadding}; text-align: center; font-size: ${taskFontSize}; font-weight: normal; ${bg} color: #000000; border-right: ${borderRight}; border-bottom: ${borderBottom};">${cell.value || ''}</td>`;
+                        }).join('');
+                    }
+
+                    tr.innerHTML = slotCell + empCell + hourlyCells;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            table.appendChild(tbody);
+        }
+    </script>
+</body>
+</html>

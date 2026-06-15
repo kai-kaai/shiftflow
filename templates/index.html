@@ -1,0 +1,3996 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShiftFlow - ระบบบริหารจัดการจัดเวรพนักงาน</title>
+    <!-- Google Fonts: Inter & Noto Sans Thai -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- html2canvas: แปลงตาราง HTML เป็นรูปภาพ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-base: #0B0F19;
+            --bg-sidebar: #0F1424;
+            --bg-surface: rgba(22, 30, 49, 0.7);
+            --bg-surface-hover: rgba(30, 41, 67, 0.9);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+            --text-muted: #6B7280;
+            
+            --color-morning-primary: #F59E0B;
+            --color-morning-gradient: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            --color-morning-glow: rgba(245, 158, 11, 0.15);
+            
+            --color-an-primary: #6366F1;
+            --color-an-gradient: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+            --color-an-glow: rgba(99, 102, 241, 0.15);
+            
+            --color-success: #10B981;
+            --color-error: #EF4444;
+            --color-warning: #F59E0B;
+            --color-info: #3B82F6;
+            
+            --font-sans: 'Inter', 'Noto Sans Thai', sans-serif;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(245, 158, 11, 0.03) 0px, transparent 50%);
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .sidebar-brand {
+            padding: 2rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand-icon {
+            width: 2.25rem;
+            height: 2.25rem;
+            background: var(--color-an-gradient);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .brand-icon svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            fill: #FFF;
+        }
+
+        .brand-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, #FFF 0%, #9CA3AF 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+        }
+
+        .nav-item {
+            width: 100%;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            border: 1px solid transparent;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        .nav-link.active {
+            color: var(--text-primary);
+            background-color: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+
+        .nav-link svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            fill: currentColor;
+            opacity: 0.8;
+        }
+
+        .sidebar-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* Main Content Area */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        header {
+            background-color: rgba(11, 15, 25, 0.4);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+        header h1 {
+            font-size: 1.35rem;
+            font-weight: 600;
+        }
+
+        header p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Tab Content Switching */
+        .tab-content {
+            display: none;
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Shared Dashboard Panels & Grids */
+        .dashboard-header-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .stat-icon {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 0.75rem;
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--color-an-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stat-icon svg {
+            width: 1.5rem;
+            height: 1.5rem;
+            fill: currentColor;
+        }
+
+        .stat-number {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Buttons & Actions */
+        .btn {
+            border: 1px solid transparent;
+            padding: 0.65rem 1.25rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: var(--transition-smooth);
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--color-an-gradient);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+        }
+
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.04);
+            border-color: var(--border-color);
+        }
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-danger {
+            background-color: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #FFA3A3;
+        }
+        .btn-danger:hover {
+            background-color: rgba(239, 68, 68, 0.25);
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Roster Table UI */
+        .roster-table-wrapper {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+
+        .roster-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .roster-table th {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1rem 1.5rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .roster-table td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.95rem;
+        }
+
+        .roster-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .roster-table tr:hover {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .emp-badge {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 2.75rem;
+            height: 1.5rem;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            transition: .3s;
+            border-radius: 1rem;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 1.1rem;
+            width: 1.1rem;
+            left: 2px;
+            bottom: 1px;
+            background-color: #FFF;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--color-success);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(1.15rem);
+        }
+
+        /* Shift Grid / Dashboard */
+        .shifts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .shift-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .shift-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            transition: var(--transition-smooth);
+        }
+
+        .shift-card.shift-morning::before {
+            background: var(--color-morning-gradient);
+        }
+
+        .shift-card.shift-an::before {
+            background: var(--color-an-gradient);
+        }
+
+        .shift-card:hover {
+            transform: translateY(-4px);
+            background: var(--bg-surface-hover);
+            box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .card-date {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .card-badge {
+            font-size: 0.72rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .shift-morning .card-badge {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--color-morning-primary);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .shift-an .card-badge {
+            background-color: rgba(99, 102, 241, 0.1);
+            color: var(--color-an-primary);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .card-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .card-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.3rem 0.65rem;
+            border-radius: 2rem;
+            width: fit-content;
+        }
+
+        .card-status-pill.completed {
+            background-color: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--color-success);
+        }
+
+        .card-status-pill.pending {
+            background-color: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: var(--color-warning);
+        }
+
+        /* Modal Dialog Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--transition-smooth);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            width: 100%;
+            max-width: 520px;
+            padding: 2rem;
+            box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
+            transform: scale(0.95);
+            transition: var(--transition-smooth);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .form-input {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        .form-input:focus {
+            border-color: var(--color-an-primary);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Workspace Grid (Shift Room Tab) */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1100px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .panel-header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .copy-block {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+        }
+
+        .copy-text {
+            font-family: monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        textarea {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            color: var(--text-primary);
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 180px;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        textarea:focus {
+            border-color: var(--color-an-primary);
+        }
+
+        .shift-morning textarea:focus {
+            border-color: var(--color-morning-primary);
+        }
+
+        /* Live Preview Grid Map */
+        .preview-grid-wrapper {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .preview-row {
+            display: grid;
+            grid-template-columns: 80px 120px 1fr;
+            align-items: center;
+            padding: 0.65rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        }
+
+        .preview-row:nth-child(even) {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .preview-slot-id {
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .preview-slot-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            display: inline-block;
+            text-align: center;
+            min-width: 60px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: var(--transition-smooth);
+        }
+
+        .preview-slot-name.filled {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--color-success);
+            border-color: rgba(16, 185, 129, 0.25);
+            font-weight: 700;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.05);
+        }
+
+        .preview-slot-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            padding-left: 1rem;
+        }
+
+        /* Employee Live Checklist Status */
+        .employees-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .emp-status-card {
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.02);
+            transition: var(--transition-smooth);
+        }
+
+        .emp-status-card.mapped {
+            background-color: rgba(16, 185, 129, 0.06);
+            border-color: rgba(16, 185, 129, 0.2);
+            color: var(--color-success);
+        }
+
+        .emp-status-card.missing {
+            background-color: rgba(245, 158, 11, 0.04);
+            border-color: rgba(245, 158, 11, 0.15);
+            color: var(--color-warning);
+        }
+
+        .emp-status-card.error {
+            background-color: rgba(239, 68, 68, 0.06);
+            border-color: rgba(239, 68, 68, 0.2);
+            color: var(--color-error);
+        }
+
+        .emp-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .status-pill.success {
+            background-color: rgba(16, 185, 129, 0.08);
+            color: var(--color-success);
+        }
+
+        .status-pill.warning {
+            background-color: rgba(245, 158, 11, 0.08);
+            color: var(--color-warning);
+        }
+
+        /* Toasts & Loaders */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .toast {
+            background: rgba(22, 30, 49, 0.95);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--color-info);
+            color: var(--text-primary);
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            transform: translateX(120%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 300px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success { border-left-color: var(--color-success); }
+        .toast.error { border-left-color: var(--color-error); }
+        .toast.warning { border-left-color: var(--color-warning); }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 15, 25, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--transition-smooth);
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 3.5rem;
+            height: 3.5rem;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid var(--color-an-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom styles for Hourly Log Editing */
+        .log-cell-color-picker {
+            position: absolute;
+            background: #FFFFFF;
+            border: 1px solid #D0D4DC;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 8px;
+            display: none;
+            gap: 6px;
+            z-index: 10000;
+            pointer-events: auto;
+        }
+        .log-color-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid #D0D4DC;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        .log-color-btn:hover {
+            transform: scale(1.15);
+        }
+        .log-task-cell.editing-active {
+            cursor: text;
+        }
+        .log-task-cell.editing-active:hover {
+            background-color: rgba(99, 102, 241, 0.05) !important;
+            outline: 1px dashed #4F46E5;
+        }
+        .log-task-cell.editing-active:focus {
+            outline: 2px solid #4F46E5 !important;
+            background-color: rgba(99, 102, 241, 0.1) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Layout -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                </svg>
+            </div>
+            <div class="brand-name">ShiftFlow</div>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a id="nav-dashboard" class="nav-link active" onclick="switchTab('dashboard')">
+                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14H5v-2h5v2zm0-4H5v-2h5v2zm0-4H5V5h5v2zm9 8h-7v-2h7v2zm0-4h-7v-2h7v2zm0-4h-7V5h7v2z"/></svg>
+                    หน้าหลัก / ตารางเวร
+                </a>
+            </li>
+            <li class="nav-item">
+                <a id="nav-shiftroom" class="nav-link" style="display: none;" onclick="switchTab('shiftroom')">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                    ห้องจัดเวรปัจจุบัน
+                </a>
+            </li>
+            <li class="nav-item">
+                <a id="nav-roster" class="nav-link" onclick="switchTab('roster')">
+                    <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                    จัดการรายชื่อพนักงาน
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            ShiftFlow v2.0<br>Database-Driven System
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="content-area">
+        <header>
+            <div>
+                <h1 id="page-title">ตารางเวรทั้งหมด</h1>
+                <p id="page-subtitle">ดูประวัติเวรและสร้างคิวจัดเวรพนักงาน</p>
+            </div>
+            <div id="header-actions">
+                <!-- Dynamic actions per tab -->
+            </div>
+        </header>
+
+        <!-- Tab 1: Dashboard -->
+        <div id="tab-dashboard" class="tab-content active">
+            <!-- Header quick statistics -->
+            <div class="dashboard-header-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3z"/></svg>
+                    </div>
+                    <div>
+                        <div class="stat-number" id="stat-active-emp">0</div>
+                        <div class="stat-label">พนักงานเปิดใช้งานในคิว</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--color-success);">
+                        <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+                    </div>
+                    <div>
+                        <div class="stat-number" id="stat-completed-shifts">0</div>
+                        <div class="stat-label">ตารางเวรที่จัดสำเร็จแล้ว</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div class="section-title" style="margin-bottom: 0;">ตารางเวลาการจัดเวรทั้งหมด</div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" style="background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #4F46E5; font-weight: 600;" onclick="viewHourlyLog('template:M8/A14')">
+                        📋 Morning Master Log
+                    </button>
+                    <button class="btn btn-secondary" style="background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #4F46E5; font-weight: 600;" onclick="viewHourlyLog('template:A+N')">
+                        📋 Afternoon/Night Master Log
+                    </button>
+                    <button class="btn btn-primary" onclick="openCreateShiftModal()">
+                        ➕ สร้างการจัดเวรใหม่
+                    </button>
+                </div>
+            </div>
+
+            <div class="shifts-grid" id="shifts-grid">
+                <!-- Loaded dynamically -->
+            </div>
+        </div>
+
+        <!-- Tab 2: Shift Room (Scheduling Room) -->
+        <div id="tab-shiftroom" class="tab-content">
+            <div class="workspace" id="workspace-container">
+                <!-- Dynamic workspaces injected -->
+            </div>
+        </div>
+
+        <!-- Tab 3: Roster Management -->
+        <div id="tab-roster" class="tab-content">
+            <div class="action-bar">
+                <div class="section-title" style="margin-bottom: 0;">รายชื่อพนักงานทั้งหมด (เรียงตามลำดับคิวหลัก)</div>
+                <button class="btn btn-primary" onclick="openEmployeeModal()">
+                    ➕ เพิ่มพนักงานใหม่
+                </button>
+            </div>
+
+            <div class="roster-table-wrapper">
+                <table class="roster-table">
+                    <thead>
+                        <tr>
+                            <th>ลำดับคิว</th>
+                            <th>ชื่อย่อ (2 ตัว)</th>
+                            <th>ชื่อ-นามสกุล</th>
+                            <th>สถานะการเปิดใช้งาน</th>
+                            <th style="text-align: right;">จัดการข้อมูล</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-table-body">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Create Shift Modal -->
+    <div id="create-shift-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'create-shift-modal')">
+        <div class="modal" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <div class="modal-title">สร้างวันจัดเวรใหม่</div>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="closeModal('create-shift-modal')">✖</button>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                <!-- Left: Form inputs -->
+                <div>
+                    <div class="form-group">
+                        <label class="form-label">วันที่จัดเวร</label>
+                        <input type="date" id="shift-date-input" class="form-input">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">กะเวลาเวร</label>
+                        <select id="shift-type-input" class="form-input">
+                            <option value="M8/A14">กะเช้า (Morning M8/A14)</option>
+                            <option value="A+N">กะบ่ายดึก (Afternoon/Night A+N)</option>
+                        </select>
+                    </div>
+
+                    <div id="create-shift-team-helper" style="margin-top: -0.5rem; margin-bottom: 1rem; font-size: 0.85rem; font-weight: 600; padding: 0.5rem; border-radius: 0.375rem; display: none; align-items: center; gap: 0.35rem;">
+                        <!-- Updated dynamically -->
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">ผู้จัดเวร (Supervisor)</label>
+                        <input type="text" id="shift-supervisor-input" class="form-input" placeholder="ตัวอย่าง: TT/SN">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">ลำดับคิวพนักงาน (ระบบแนะนำคิวให้อัตโนมัติ - แก้ไขจัดเรียงชื่อใหม่ได้ บรรทัดละคน)</label>
+                        <textarea id="shift-queue-input" class="form-input" style="min-height: 250px; font-family: monospace; font-size: 0.95rem; line-height: 1.4;" placeholder="พิมพ์รายชื่อพนักงาน บรรทัดละคน..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Right: Reference panel -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 1rem; color: #E5E7EB;">
+                    <div style="font-weight: 700; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem; color: #10B981; display: flex; align-items: center; gap: 0.5rem;">
+                        📅 ข้อมูลเวรก่อนหน้า (อ้างอิง)
+                    </div>
+                    <div id="prev-shift-ref-details" style="font-size: 0.9rem; line-height: 1.6;">
+                        <!-- Filled dynamically -->
+                    </div>
+                    <div style="font-weight: 600; font-size: 0.85rem; color: #9CA3AF;">
+                        คิวทำงานเวรก่อนหน้า (13 คน):
+                    </div>
+                    <div id="prev-shift-ref-queue" style="background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.375rem; font-family: monospace; font-size: 0.9rem; line-height: 1.5; color: #34D399; max-height: 180px; overflow-y: auto; white-space: pre-line; border: 1px solid rgba(255,255,255,0.05);">
+                        <!-- Filled dynamically -->
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeModal('create-shift-modal')">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="submitCreateShift()">สร้างตารางเวร</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Employee Modal -->
+    <div id="employee-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'employee-modal')">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="emp-modal-title">เพิ่มรายชื่อพนักงาน</div>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="closeModal('employee-modal')">✖</button>
+            </div>
+            
+            <input type="hidden" id="emp-id-input">
+
+            <div class="form-group">
+                <label class="form-label">ชื่อย่อพนักงาน (ตัวอักษรพิมพ์ใหญ่ 2 ตัว)</label>
+                <input type="text" id="emp-initials-input" class="form-input" placeholder="ตัวอย่าง: CQ" maxlength="2">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">ชื่อ-นามสกุลพนักงาน</label>
+                <input type="text" id="emp-fullname-input" class="form-input" placeholder="ตัวอย่าง: Somchai Jaidee">
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeModal('employee-modal')">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="submitSaveEmployee()">บันทึกข้อมูล</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hourly Log Modal -->
+    <div id="hourly-log-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'hourly-log-modal')">
+        <div class="modal" style="max-width: 95%; width: 1400px; max-height: 90vh; overflow-y: auto; background: #FFFFFF; color: #000000; border: 1px solid #D0D4DC;">
+            <div class="modal-header" style="position: sticky; top: 0; background: #FFFFFF; padding-bottom: 1rem; border-bottom: 1px solid #D0D4DC; z-index: 10; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div class="modal-title" id="hourly-log-title" style="color: #000000; font-weight: 700;">ตารางชั่วโมงการทำงาน (Hourly Log)</div>
+                    <div style="font-size: 0.85rem; color: #4B5563; margin-top: 0.25rem;" id="hourly-log-subtitle"></div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" id="btn-open-new-tab-log" style="padding: 0.25rem 0.75rem; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #059669; font-weight: 600;" onclick="openLogNewTab()">🔗 เปิดในแท็บใหม่ (เต็มจอ)</button>
+                    <button class="btn btn-secondary" id="btn-download-log-img" style="padding: 0.25rem 0.75rem; background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.4); color: #B45309; font-weight: 600;" onclick="downloadLogAsImage()">📥 ดาวน์โหลดรูป</button>
+                    <button class="btn btn-secondary" id="btn-edit-hourly-log" style="padding: 0.25rem 0.75rem; background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.3); color: #4F46E5; font-weight: 600;" onclick="toggleEditLogMode()">✏️ แก้ไขตาราง Log</button>
+                    <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; background: #F3F4F6; border-color: #D0D4DC; color: #000000;" onclick="closeModal('hourly-log-modal')">✖ ปิดหน้าต่าง</button>
+                </div>
+            </div>
+            
+            <div style="overflow-x: auto; margin-top: 1rem; border-radius: 0.5rem; border: 1px solid #D0D4DC; background: #FFFFFF;">
+                <table style="width: 100%; border-collapse: collapse; min-width: 1200px; font-size: 0.85rem; background: #FFFFFF; color: #000000;" id="hourly-log-table">
+                    <!-- Generated dynamically -->
+                </table>
+            </div>
+
+            <div class="modal-footer" id="hourly-log-footer" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #D0D4DC; display: none; justify-content: flex-end; gap: 0.5rem;">
+                <button class="btn btn-secondary" style="background: #F3F4F6; border-color: #D0D4DC; color: #000000;" onclick="cancelEditLogMode()">ยกเลิก</button>
+                <button class="btn btn-primary" style="background: #4F46E5; border-color: #4F46E5; color: #FFFFFF;" onclick="saveCustomLogToServer()">💾 บันทึกตาราง Log</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Color Picker Popup -->
+    <div id="log-cell-color-picker" class="log-cell-color-picker">
+        <button class="log-color-btn" style="background-color: #FFFFFF;" title="ไม่มีสี" onclick="selectPickerColor('#FFFFFF')"></button>
+        <button class="log-color-btn" style="background-color: #EA9999;" title="GMC/CDC" onclick="selectPickerColor('#EA9999')"></button>
+        <button class="log-color-btn" style="background-color: #F4CCCC;" title="GSE" onclick="selectPickerColor('#F4CCCC')"></button>
+        <button class="log-color-btn" style="background-color: #E2E8F0;" title="FDO/Break" onclick="selectPickerColor('#E2E8F0')"></button>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Spinner Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Interactive Workspace logic -->
+    <script>
+        let roster = [];
+        let shifts = [];
+        let activeTab = 'dashboard';
+        
+        let selectedShift = null;
+        let currentLogShiftId = null;
+        let activeEditingCell = null;
+        let isEditLogMode = false;
+        let originalLogHtml = '';
+        let parsedChoices = {};
+        let shiftLeaves = {};
+        let shiftOTs = [];
+
+        // Log structures for preview
+        const morningLogs = [
+            { id: "1", desc: "Log 1 (LCL/ASL+COT)" },
+            { id: "2", desc: "Log 2 (GSE)" },
+            { id: "3", desc: "Log 3 (GNN/GMC+F2)" },
+            { id: "4", desc: "Log 4 (CDC)" },
+            { id: "5", desc: "Log 5 (ASL+COT/LCL)" },
+            { id: "6", desc: "Log 6 (GMC+F2/GNN)" },
+            { id: "7", desc: "Log 7 (COT)" },
+            { id: "8", desc: "Log 8 (GSE)" },
+            { id: "9", desc: "Log 9 (GNN/GMC+F2)" },
+            { id: "10", desc: "Log 10 (COT)" },
+            { id: "11", desc: "Log 11 (GSE)" },
+            { id: "W/S A14", desc: "Working Supervisor A14" },
+            { id: "W/S M8", desc: "Working Supervisor M8" },
+            { id: "FDO1", desc: "FDO 1" },
+            { id: "FDO2", desc: "FDO 2" }
+        ];
+
+        const anLogs = [
+            { id: "A1", desc: "Afternoon Log 1 (GMC+F2/GNN)" },
+            { id: "A2", desc: "Afternoon Log 2 (GNN/GMC+F2)" },
+            { id: "A3", desc: "Afternoon Log 3 (GNN)" },
+            { id: "A4", desc: "Afternoon Log 4 (CDC)" },
+            { id: "A5", desc: "Afternoon Log 5 (GSE)" },
+            { id: "N1", desc: "Night Log 1 (LCL)" },
+            { id: "N2", desc: "Night Log 2 (GND)" },
+            { id: "N3", desc: "Night Log 3 (CDC)" },
+            { id: "N4", desc: "Night Log 4 (ASL)" },
+            { id: "N5", desc: "Night Log 5 (CDC)" },
+            { id: "N6", desc: "Night Log 6 (GMC)" },
+            { id: "N7", desc: "Night Log 7 (GNSE)" },
+            { id: "FDO A", desc: "FDO Afternoon" },
+            { id: "FDO1", desc: "FDO 1 (Night)" },
+            { id: "FDO2", desc: "FDO 2 (Night)" },
+            { id: "W/S N", desc: "Working Supervisor Night" }
+        ];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+            
+            // Listeners for create shift modal helper updates
+            document.getElementById('shift-date-input').addEventListener('change', handleCreateShiftInputChanges);
+            document.getElementById('shift-type-input').addEventListener('change', handleCreateShiftInputChanges);
+        });
+
+        function showLoading(show) {
+            const overlay = document.getElementById('loading-overlay');
+            if (show) overlay.classList.add('active');
+            else overlay.classList.remove('active');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = 'ℹ️';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'warning') icon = '⚠️';
+
+            toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 50);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function loadAllData() {
+            showLoading(true);
+            Promise.all([
+                fetch('/api/employees').then(res => res.json()),
+                fetch('/api/shifts').then(res => res.json())
+            ])
+            .then(([rosterData, shiftsData]) => {
+                roster = rosterData.employees || [];
+                shifts = shiftsData.shifts || [];
+                
+                updateStats();
+                renderRosterTable();
+                renderShiftsGrid();
+                
+                // If a shift was opened, reload its details
+                if (selectedShift) {
+                    const updated = shifts.find(s => s.id === selectedShift.id);
+                    if (updated) selectShift(updated, false);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast("ไม่สามารถเชื่อมต่อฐานข้อมูลจัดเวรได้", "error");
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+        }
+
+        function updateStats() {
+            const activeEmp = roster.filter(e => e.is_active === 1).length;
+            const completed = shifts.filter(s => s.is_completed === 1).length;
+            
+            document.getElementById('stat-active-emp').innerText = activeEmp;
+            document.getElementById('stat-completed-shifts').innerText = completed;
+        }
+
+        // Switching Tabs
+        function switchTab(tabName) {
+            // Deactivate old active tab
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+
+            // Activate new
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            document.getElementById(`nav-${tabName}`).classList.add('active');
+            activeTab = tabName;
+
+            const title = document.getElementById('page-title');
+            const subtitle = document.getElementById('page-subtitle');
+            
+            if (tabName === 'dashboard') {
+                title.innerText = 'ตารางเวรทั้งหมด';
+                subtitle.innerText = 'ดูประวัติเวรและสร้างคิวจัดเวรพนักงาน';
+            } else if (tabName === 'roster') {
+                title.innerText = 'จัดการรายชื่อพนักงาน';
+                subtitle.innerText = 'เพิ่ม ลบ แก้ไขรายชื่อ และระบุสถานะ Active/Inactive ของพนักงาน';
+            } else if (tabName === 'shiftroom') {
+                title.innerText = `ห้องจัดเวรประจำวันที่ ${selectedShift ? selectedShift.date_display : ''}`;
+                if (selectedShift) {
+                    const team = getTeamForDate(selectedShift.date, selectedShift.shift_type);
+                    let teamLabel = '';
+                    if (team === 'purple') {
+                        teamLabel = ' | 🟣 ทีมสีม่วง';
+                    } else if (team === 'green') {
+                        teamLabel = ' | 🟢 ทีมสีเขียว';
+                    }
+                    subtitle.innerText = `กะ${selectedShift.shift_type === 'M8/A14' ? 'เช้า (M8/A14)' : 'บ่ายดึก (A+N)'}${teamLabel} | Supervisor: ${selectedShift.supervisor || 'ไม่ได้ระบุ'}`;
+                } else {
+                    subtitle.innerText = 'จัดตำแหน่งของพนักงานในกะ';
+                }
+            }
+        }
+
+        // Roster Render & Handlers
+        function renderRosterTable() {
+            const body = document.getElementById('roster-table-body');
+            body.innerHTML = '';
+
+            if (roster.length === 0) {
+                body.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 3rem 0;">ไม่มีรายชื่อพนักงานในฐานข้อมูล</td></tr>`;
+                return;
+            }
+
+            roster.forEach((emp) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${emp.queue_order}</td>
+                    <td><span class="emp-badge">${emp.initials}</span></td>
+                    <td>${emp.full_name}</td>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" ${emp.is_active === 1 ? 'checked' : ''} onchange="toggleEmployeeActive(${emp.id}, this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </td>
+                    <td style="text-align: right; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.75rem;" onclick="openEmployeeModal(${emp.id}, '${emp.initials}', '${emp.full_name}')">แก้ไข</button>
+                        <button class="btn btn-danger" style="padding: 0.4rem 0.75rem;" onclick="deleteEmployee(${emp.id})">ลบ</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function toggleEmployeeActive(id, isChecked) {
+            const emp = roster.find(e => e.id === id);
+            if (!emp) return;
+
+            showLoading(true);
+            const payload = {
+                id: emp.id,
+                initials: emp.initials,
+                full_name: emp.full_name,
+                is_active: isChecked ? 1 : 0
+            };
+
+            fetch('/api/employees', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                showToast(`อัปเดตสถานะ ${emp.initials} เป็น ${isChecked ? 'Active' : 'Inactive'} เรียบร้อย`, "success");
+                loadAllData();
+            })
+            .catch(err => {
+                showToast(err.message, "error");
+                loadAllData();
+            });
+        }
+
+        // Shifts List Render
+        function groupShiftsByMonth(shiftsArray) {
+            const groups = {};
+            const monthNamesEnglish = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+
+            shiftsArray.forEach(shift => {
+                const parts = shift.date.split('-');
+                if (parts.length < 2) return;
+                const year = parseInt(parts[0], 10);
+                const monthNum = parseInt(parts[1], 10);
+                
+                const key = `${year}-${String(monthNum).padStart(2, '0')}`;
+                
+                if (!groups[key]) {
+                    const englishMonth = monthNamesEnglish[monthNum - 1] || "Unknown";
+                    groups[key] = {
+                        year: year,
+                        monthNum: monthNum,
+                        label: `${englishMonth} ${year}`,
+                        shifts: []
+                    };
+                }
+                groups[key].shifts.push(shift);
+            });
+
+            const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+            return sortedKeys.map(key => groups[key]);
+        }
+
+        function renderShiftsGrid() {
+            const grid = document.getElementById('shifts-grid');
+            grid.innerHTML = '';
+            grid.style.display = 'block'; 
+
+            if (shifts.length === 0) {
+                grid.style.display = 'grid'; 
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1;" class="empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+                        <div class="empty-state-title">ไม่พบประวัติการจัดเวร</div>
+                        <p>คลิกที่ปุ่ม "สร้างการจัดเวรใหม่" ด้านบน เพื่อเริ่มสร้างคิวแรก</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const monthGroups = groupShiftsByMonth(shifts);
+            monthGroups.forEach(group => {
+                const section = document.createElement('div');
+                section.className = 'month-section';
+                section.style.marginBottom = '2.5rem';
+
+                const header = document.createElement('h3');
+                header.className = 'month-header';
+                header.style.fontSize = '1.3rem';
+                header.style.fontWeight = '700';
+                header.style.color = '#1F2937';
+                header.style.marginBottom = '1.25rem';
+                header.style.paddingBottom = '0.5rem';
+                header.style.borderBottom = '2px solid #E5E7EB';
+                header.style.display = 'flex';
+                header.style.alignItems = 'center';
+                header.style.gap = '0.5rem';
+                header.innerHTML = `📅 ${group.label}`;
+                
+                section.appendChild(header);
+
+                const cardsGrid = document.createElement('div');
+                cardsGrid.className = 'shifts-month-grid';
+                cardsGrid.style.display = 'grid';
+                cardsGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
+                cardsGrid.style.gap = '1.25rem';
+
+                group.shifts.forEach(shift => {
+                    const isMorning = shift.shift_type === 'M8/A14';
+                    const cardClass = isMorning ? 'shift-morning' : 'shift-an';
+                    const card = document.createElement('div');
+                    card.className = `shift-card ${cardClass}`;
+                    
+                    const team = getTeamForDate(shift.date, shift.shift_type);
+                    let teamBadge = '';
+                    if (team === 'purple') {
+                        card.style.borderLeft = '5px solid #A855F7';
+                        teamBadge = `<span style="background: rgba(168, 85, 247, 0.15); color: #7E22CE; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 700; border: 1px solid rgba(168, 85, 247, 0.3); display: inline-flex; align-items: center; gap: 0.2rem;">🟣 ทีมสีม่วง</span>`;
+                    } else if (team === 'green') {
+                        card.style.borderLeft = '5px solid #10B981';
+                        teamBadge = `<span style="background: rgba(16, 185, 129, 0.15); color: #065F46; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 700; border: 1px solid rgba(16, 185, 129, 0.3); display: inline-flex; align-items: center; gap: 0.2rem;">🟢 ทีมสีเขียว</span>`;
+                    } else {
+                        card.style.borderLeft = '5px solid #9CA3AF';
+                    }
+
+                    card.innerHTML = `
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div class="card-date">${shift.date_display}</div>
+                            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                ${teamBadge}
+                                <div class="card-badge">${isMorning ? 'กะเช้า' : 'กะบ่ายดึก'}</div>
+                            </div>
+                        </div>
+                        <div class="card-details">
+                            <div>Supervisor: <strong>${shift.supervisor || 'ไม่ได้ระบุ'}</strong></div>
+                            <div>คิวพนักงานในกะ: <strong>${shift.queue ? shift.queue.length : 0} คน</strong></div>
+                            <div class="card-status-pill ${shift.is_completed === 1 ? 'completed' : 'pending'}">
+                                ${shift.is_completed === 1 ? '🟢 จัดเวรสำเร็จแล้ว' : '🔴 ยังจัดเวรไม่เสร็จ'}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                            <button class="btn btn-primary" style="flex: 1; padding: 0.5rem;" onclick="selectShiftById(${shift.id})">ห้องจัดเวร</button>
+                            <button class="btn btn-secondary" style="padding: 0.5rem; background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3);" onclick="viewHourlyLog(${shift.id})">📋 ดูตาราง Log</button>
+                            <button class="btn btn-danger" style="padding: 0.5rem;" onclick="deleteShift(${shift.id})">ลบ</button>
+                        </div>
+                    `;
+                    cardsGrid.appendChild(card);
+                });
+                section.appendChild(cardsGrid);
+                grid.appendChild(section);
+            });
+        }
+
+        // Shift Selection Room Setup
+        function selectShiftById(id) {
+            const shift = shifts.find(s => s.id === id);
+            if (shift) selectShift(shift);
+        }
+
+        function openLogNewTab() {
+            if (!currentLogShiftId) return;
+            window.open(`/hourly-log/view?id=${currentLogShiftId}`, '_blank');
+        }
+
+        function viewHourlyLog(id) {
+            currentLogShiftId = id;
+            isEditLogMode = false;
+            
+            // Reset Edit button and footer states when modal opens
+            const editBtn = document.getElementById('btn-edit-hourly-log');
+            if (editBtn) {
+                editBtn.innerHTML = '✏️ แก้ไขตาราง Log';
+                editBtn.style.background = 'rgba(99, 102, 241, 0.1)';
+                editBtn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                editBtn.style.color = '#4F46E5';
+            }
+            const footer = document.getElementById('hourly-log-footer');
+            if (footer) footer.style.display = 'none';
+            hideColorPicker();
+
+            showLoading(true);
+            let fetchUrl = `/api/shifts/${id}/hourly-log`;
+            if (String(id).startsWith('template:')) {
+                const typeSlug = String(id).split(':')[1].replace('/', '_').replace('+', '_');
+                fetchUrl = `/api/templates/${typeSlug}/hourly-log`;
+            }
+            fetch(fetchUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error("ไม่สามารถโหลดประวัติตารางเวรนี้ได้");
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
+                    
+                    // Populate modal title & subtitle
+                    document.getElementById('hourly-log-title').innerText = `ตารางชั่วโมงการทำงานประจำวันที่ ${data.date_display}`;
+                    const shiftName = data.shift_type === 'M8/A14' ? 'กะเช้า (Morning M8/A14)' : 'กะบ่ายดึก (Afternoon/Night A+N)';
+                    document.getElementById('hourly-log-subtitle').innerText = `ประเภท: ${shiftName} | ผู้จัดเวร (Supervisor): ${data.supervisor || 'ไม่มี'}`;
+                    
+                    const table = document.getElementById('hourly-log-table');
+                    table.innerHTML = '';
+                    table.style.background = '#FFFFFF';
+                    table.style.color = '#000000';
+                    table.style.border = 'none';
+                    table.style.borderCollapse = 'collapse';
+                    table.style.fontFamily = '"Calibri", "Segoe UI", Arial, sans-serif';
+                    
+                    const isMorning = data.shift_type === 'M8/A14';
+                    const tbody = document.createElement('tbody');
+                    const taskFontSize = isMorning ? '10pt' : '14pt';
+
+                    if (isMorning) {
+                        // --- MORNING LAYOUT ---
+                        // 1. Row 1: Date Header (M8 13 JUN 2026) Centered
+                        const r1 = document.createElement('tr');
+                        r1.innerHTML = `
+                            <td colspan="14" style="padding: 10px 0; font-weight: bold; font-size: 24pt; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
+                                M8 ${data.date_display}
+                            </td>
+                        `;
+                        tbody.appendChild(r1);
+
+                        // 2. Row 2: Hours Headers
+                        const r2 = document.createElement('tr');
+                        const displayHours = data.hours.slice(0, 12);
+                        r2.innerHTML = `
+                            <td style="background: #FFFFFF; color: #000000; padding: 8px; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: 11pt; width: 100px; min-width: 100px;"></td>
+                            <td style="background: #FFFFFF; color: #000000; padding: 8px; border-right: 2px solid #000000; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: 11pt; width: 100px; min-width: 100px;"></td>
+                            ${displayHours.map((h, i) => {
+                                const isLast = (i === displayHours.length - 1);
+                                const borderRight = isLast ? '2px solid #000000' : '1px solid #A6A6A6';
+                                return `<td style="background: #FFFFFF; color: #000000; padding: 8px; border-right: ${borderRight}; border-bottom: 2px solid #000000; text-align: center; font-weight: normal; font-size: 11pt; min-width: 100px; width: 100px;">${h}</td>`;
+                            }).join('')}
+                        `;
+                        tbody.appendChild(r2);
+
+                        // 3. Rows 3+: Morning Slots
+                        data.rows.forEach((row, rIdx) => {
+                            const tr = document.createElement('tr');
+                            const isLastRow = (rIdx === data.rows.length - 1);
+                            const borderBottom = isLastRow ? '2px solid #000000' : '1px solid #A6A6A6';
+                            
+                            const slotCell = `<td style="padding: 8px; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: 11pt; background: ${row.slot_bg || '#FFFFFF'}; color: #000000;">${row.slot}</td>`;
+                            const empCell = `<td style="padding: 8px; border-right: 2px solid #000000; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: 11pt; background: ${row.employee_bg || '#FFFFFF'}; color: #000000;">${row.employee || ''}</td>`;
+                            
+                            let hourlyCells = '';
+                            if (row.slot === 'W/S M8') {
+                                const mergeCellVal = row.cells[0]?.value || '';
+                                const bgMergeColor = row.cells[0]?.bg_color || '';
+                                const bgMerge = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                                hourlyCells = `<td colspan="12" class="log-task-cell" data-slot="${row.slot_id}" data-idx="0" data-color="${bgMergeColor}" contenteditable="false" style="padding: 8px; text-align: center; font-size: ${taskFontSize}; font-weight: bold; ${bgMerge} color: #000000; border-right: 2px solid #000000; border-bottom: ${borderBottom};">${mergeCellVal}</td>`;
+                            } else {
+                                const displayCells = row.cells.slice(0, 12);
+                                hourlyCells = displayCells.map((cell, cIdx) => {
+                                    const isLastCol = (cIdx === displayCells.length - 1);
+                                    const borderRight = isLastCol ? '2px solid #000000' : '1px solid #A6A6A6';
+                                    const bgMergeColor = cell.bg_color || '';
+                                    const bg = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                                    return `<td class="log-task-cell" data-slot="${row.slot_id}" data-idx="${cIdx}" data-color="${bgMergeColor}" contenteditable="false" style="padding: 8px; text-align: center; font-size: ${taskFontSize}; font-weight: normal; ${bg} color: #000000; border-right: ${borderRight}; border-bottom: ${borderBottom};">${cell.value || ''}</td>`;
+                                }).join('');
+                            }
+                            
+                            tr.innerHTML = slotCell + empCell + hourlyCells;
+                            tbody.appendChild(tr);
+                        });
+
+                    } else {
+                        // --- AFTERNOON/NIGHT LAYOUT ---
+                        // 1. Row 1: Afternoon Date Header (A 30 MAY 2026) Centered
+                        const r1 = document.createElement('tr');
+                        r1.innerHTML = `
+                            <td colspan="${data.hours.length + 2}" style="padding: 10px 0; font-weight: bold; font-size: 24pt; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
+                                A ${data.date_display}
+                            </td>
+                        `;
+                        tbody.appendChild(r1);
+
+                        // 2. Row 2: Afternoon Hours Headers
+                        const r2 = document.createElement('tr');
+                        r2.innerHTML = `
+                            <td style="background: #FFFFFF; color: #000000; padding: 8px; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: 11pt; width: 100px; min-width: 100px;"></td>
+                            <td style="background: #FFFFFF; color: #000000; padding: 8px; border-right: 2px solid #000000; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: 11pt; width: 100px;"></td>
+                            ${data.hours.map((h, i) => {
+                                const isLast = (i === data.hours.length - 1);
+                                const borderRight = isLast ? '2px solid #000000' : '1px solid #A6A6A6';
+                                return `<td style="background: #FFFFFF; color: #000000; padding: 8px; border-right: ${borderRight}; border-bottom: 2px solid #000000; text-align: center; font-weight: normal; font-size: 11pt; min-width: 100px; width: 100px;">${h}</td>`;
+                            }).join('')}
+                        `;
+                        tbody.appendChild(r2);
+
+                        // 3. Afternoon slots (first 6 rows in data.rows: slots 1-5 and FDO A)
+                        const afternoonRows = data.rows.slice(0, 6);
+                        afternoonRows.forEach((row, rIdx) => {
+                            const tr = document.createElement('tr');
+                            const isLastRow = (rIdx === afternoonRows.length - 1);
+                            const borderBottom = isLastRow ? '2px solid #000000' : '1px solid #A6A6A6';
+                            
+                            const slotCell = `<td style="padding: 8px; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: 11pt; background: ${row.slot_bg || '#FFFFFF'}; color: #000000;">${row.slot}</td>`;
+                            const empCell = `<td style="padding: 8px; border-right: 2px solid #000000; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: 11pt; background: ${row.employee_bg || '#FFFFFF'}; color: #000000;">${row.employee || ''}</td>`;
+                            
+                            const hourlyCells = row.cells.map((cell, cIdx) => {
+                                const isLastCol = (cIdx === row.cells.length - 1);
+                                const borderRight = isLastCol ? '2px solid #000000' : '1px solid #A6A6A6';
+                                const bgMergeColor = cell.bg_color || '';
+                                const bg = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                                return `<td class="log-task-cell" data-slot="${row.slot_id}" data-idx="${cIdx}" data-color="${bgMergeColor}" contenteditable="false" style="padding: 8px; text-align: center; font-size: ${taskFontSize}; font-weight: normal; ${bg} color: #000000; border-right: ${borderRight}; border-bottom: ${borderBottom};">${cell.value || ''}</td>`;
+                            }).join('');
+                            
+                            tr.innerHTML = slotCell + empCell + hourlyCells;
+                            tbody.appendChild(tr);
+                        });
+
+                        // 4. Night Date Header (N 30 MAY 2026) Centered
+                        const r3 = document.createElement('tr');
+                        r3.innerHTML = `
+                            <td colspan="${data.hours.length + 2}" style="padding: 10px 0; font-weight: bold; font-size: 24pt; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
+                                N ${data.date_display}
+                            </td>
+                        `;
+                        tbody.appendChild(r3);
+
+                        // 5. Night Hours Headers
+                        const r4 = document.createElement('tr');
+                        r4.innerHTML = `
+                            <td style="background: #FFFFFF; color: #000000; padding: 8px; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: 11pt; width: 100px; min-width: 100px;"></td>
+                            <td style="background: #FFFFFF; color: #000000; padding: 8px; border-right: 2px solid #000000; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: 11pt; width: 100px;"></td>
+                            ${data.hours.map((h, i) => {
+                                const isLast = (i === data.hours.length - 1);
+                                const borderRight = isLast ? '2px solid #000000' : '1px solid #A6A6A6';
+                                return `<td style="background: #FFFFFF; color: #000000; padding: 8px; border-right: ${borderRight}; border-bottom: 2px solid #000000; text-align: center; font-weight: normal; font-size: 11pt; min-width: 100px; width: 100px;">${h}</td>`;
+                            }).join('')}
+                        `;
+                        tbody.appendChild(r4);
+
+                        // 6. Night slots (remaining rows in data.rows)
+                        const nightRows = data.rows.slice(6);
+                        nightRows.forEach((row, rIdx) => {
+                            const tr = document.createElement('tr');
+                            const isLastRow = (rIdx === nightRows.length - 1);
+                            const borderBottom = isLastRow ? '2px solid #000000' : '1px solid #A6A6A6';
+                            
+                            const slotCell = `<td style="padding: 8px; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: 11pt; background: ${row.slot_bg || '#FFFFFF'}; color: #000000;">${row.slot}</td>`;
+                            const empCell = `<td style="padding: 8px; border-right: 2px solid #000000; border-bottom: ${borderBottom}; text-align: center; font-weight: bold; font-size: 11pt; background: ${row.employee_bg || '#FFFFFF'}; color: #000000;">${row.employee || ''}</td>`;
+                            
+                            let hourlyCells = '';
+                            if (row.slot === 'W/S N') {
+                                const normalCells = row.cells.slice(0, 3).map((cell, cIdx) => {
+                                    const borderRight = '1px solid #A6A6A6';
+                                    const bgMergeColor = cell.bg_color || '';
+                                    const bg = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                                    return `<td class="log-task-cell" data-slot="${row.slot_id}" data-idx="${cIdx}" data-color="${bgMergeColor}" contenteditable="false" style="padding: 8px; text-align: center; font-size: ${taskFontSize}; font-weight: normal; ${bg} color: #000000; border-right: ${borderRight}; border-bottom: ${borderBottom};">${cell.value || ''}</td>`;
+                                }).join('');
+                                
+                                const mergeCellVal = row.cells[3]?.value || '';
+                                const bgMergeColor = row.cells[3]?.bg_color || '';
+                                const bgMerge = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                                const mergedCell = `<td colspan="10" class="log-task-cell" data-slot="${row.slot_id}" data-idx="3" data-color="${bgMergeColor}" contenteditable="false" style="padding: 8px; text-align: center; font-size: ${taskFontSize}; font-weight: bold; ${bgMerge} color: #000000; border-right: 2px solid #000000; border-bottom: ${borderBottom};">${mergeCellVal}</td>`;
+                                
+                                hourlyCells = normalCells + mergedCell;
+                            } else {
+                                hourlyCells = row.cells.map((cell, cIdx) => {
+                                    const isLastCol = (cIdx === row.cells.length - 1);
+                                    const borderRight = isLastCol ? '2px solid #000000' : '1px solid #A6A6A6';
+                                    const bgMergeColor = cell.bg_color || '';
+                                    const bg = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
+                                    return `<td class="log-task-cell" data-slot="${row.slot_id}" data-idx="${cIdx}" data-color="${bgMergeColor}" contenteditable="false" style="padding: 8px; text-align: center; font-size: ${taskFontSize}; font-weight: normal; ${bg} color: #000000; border-right: ${borderRight}; border-bottom: ${borderBottom};">${cell.value || ''}</td>`;
+                                }).join('');
+                            }
+                            
+                            tr.innerHTML = slotCell + empCell + hourlyCells;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                    
+                    table.appendChild(tbody);
+                    
+                    // Open Modal
+                    document.getElementById('hourly-log-modal').classList.add('active');
+                })
+                .catch(err => {
+                    showToast(err.message, "error");
+                })
+                .finally(() => {
+                    showLoading(false);
+                });
+        }
+
+        // --- Custom Hourly Log Editing Handlers ---
+        function toggleEditLogMode() {
+            const editBtn = document.getElementById('btn-edit-hourly-log');
+            const footer = document.getElementById('hourly-log-footer');
+            
+            if (!isEditLogMode) {
+                // Enter edit mode
+                isEditLogMode = true;
+                originalLogHtml = document.getElementById('hourly-log-table').innerHTML;
+                
+                // Show footer, update edit button text/styling
+                footer.style.display = 'flex';
+                editBtn.innerHTML = '✏️ โหมดแก้ไขกำลังทำงาน';
+                editBtn.style.background = '#FEF3C7';
+                editBtn.style.borderColor = '#F59E0B';
+                editBtn.style.color = '#D97706';
+                
+                // Make cells editable
+                const cells = document.querySelectorAll('.log-task-cell');
+                cells.forEach(cell => {
+                    cell.setAttribute('contenteditable', 'true');
+                    cell.classList.add('editing-active');
+                });
+                
+                // Setup click/focus listener for the color picker
+                setupColorPickerListeners();
+            }
+        }
+
+        function cancelEditLogMode() {
+            if (!isEditLogMode) return;
+            
+            // Restore original HTML
+            document.getElementById('hourly-log-table').innerHTML = originalLogHtml;
+            
+            // Exit edit mode
+            isEditLogMode = false;
+            
+            const editBtn = document.getElementById('btn-edit-hourly-log');
+            const footer = document.getElementById('hourly-log-footer');
+            footer.style.display = 'none';
+            editBtn.innerHTML = '✏️ แก้ไขตาราง Log';
+            editBtn.style.background = 'rgba(99, 102, 241, 0.1)';
+            editBtn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+            editBtn.style.color = '#4F46E5';
+            
+            // Hide color picker
+            hideColorPicker();
+        }
+
+        function setupColorPickerListeners() {
+            const cells = document.querySelectorAll('.log-task-cell');
+            cells.forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+                cell.addEventListener('focus', handleCellClick);
+            });
+        }
+
+        function handleCellClick(e) {
+            if (!isEditLogMode) return;
+            
+            activeEditingCell = e.currentTarget;
+            
+            // Position the color picker near the cell
+            const rect = activeEditingCell.getBoundingClientRect();
+            const picker = document.getElementById('log-cell-color-picker');
+            
+            picker.style.display = 'flex';
+            const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+            
+            picker.style.top = `${rect.bottom + scrollY + 4}px`;
+            picker.style.left = `${rect.left + scrollX}px`;
+            
+            e.stopPropagation();
+        }
+
+        function hideColorPicker() {
+            const picker = document.getElementById('log-cell-color-picker');
+            if (picker) picker.style.display = 'none';
+        }
+
+        function selectPickerColor(color) {
+            if (!activeEditingCell) return;
+            
+            if (color === '#FFFFFF') {
+                activeEditingCell.style.backgroundColor = '#FFFFFF';
+                activeEditingCell.setAttribute('data-color', '');
+            } else {
+                activeEditingCell.style.backgroundColor = color;
+                activeEditingCell.setAttribute('data-color', color);
+            }
+            
+            hideColorPicker();
+        }
+
+        function saveCustomLogToServer() {
+            if (!currentLogShiftId) {
+                showToast("ไม่พบรหัสตารางเวร", "error");
+                return;
+            }
+            
+            showLoading(true);
+            
+            const cells = document.querySelectorAll('.log-task-cell');
+            const slotsMap = {};
+            
+            cells.forEach(cell => {
+                const slot = cell.getAttribute('data-slot');
+                const idx = parseInt(cell.getAttribute('data-idx'), 10);
+                const val = cell.innerText.trim();
+                const bgColor = cell.getAttribute('data-color') || null;
+                
+                if (!slotsMap[slot]) {
+                    slotsMap[slot] = {
+                        slot: slot,
+                        cells: []
+                    };
+                }
+                
+                slotsMap[slot].cells.push({
+                    idx: idx,
+                    value: val,
+                    bg_color: bgColor
+                });
+            });
+            
+            const custom_log = [];
+            for (const key in slotsMap) {
+                const rowData = slotsMap[key];
+                rowData.cells.sort((a, b) => a.idx - b.idx);
+                
+                const cleanCells = rowData.cells.map(c => ({
+                    value: c.value,
+                    bg_color: c.bg_color
+                }));
+                
+                custom_log.push({
+                    slot: rowData.slot,
+                    cells: cleanCells
+                });
+            }
+            
+            let postUrl = `/api/shifts/${currentLogShiftId}/hourly-log`;
+            if (String(currentLogShiftId).startsWith('template:')) {
+                const typeSlug = String(currentLogShiftId).split(':')[1].replace('/', '_').replace('+', '_');
+                postUrl = `/api/templates/${typeSlug}/hourly-log`;
+            }
+            
+            fetch(postUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ custom_log: custom_log })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("ไม่สามารถบันทึกตาราง Log ได้");
+                return res.json();
+            })
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                showToast(data.message || "บันทึกข้อมูลตาราง Log เรียบร้อยแล้ว", "success");
+                
+                // Exit Edit Mode
+                isEditLogMode = false;
+                const editBtn = document.getElementById('btn-edit-hourly-log');
+                const footer = document.getElementById('hourly-log-footer');
+                if (footer) footer.style.display = 'none';
+                if (editBtn) {
+                    editBtn.innerHTML = '✏️ แก้ไขตาราง Log';
+                    editBtn.style.background = 'rgba(99, 102, 241, 0.1)';
+                    editBtn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                    editBtn.style.color = '#4F46E5';
+                }
+                
+                // Reload modal data to make sure everything matches and is no longer contenteditable
+                viewHourlyLog(currentLogShiftId);
+            })
+            .catch(err => {
+                showToast(err.message, "error");
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+        }
+
+        // Global click handler to dismiss the color picker when clicking outside
+        document.addEventListener('click', function(e) {
+            const picker = document.getElementById('log-cell-color-picker');
+            if (!picker) return;
+            
+            // Check if click was inside an editable cell or inside the picker itself
+            if (!e.target.closest('.log-task-cell') && !e.target.closest('#log-cell-color-picker')) {
+                hideColorPicker();
+            }
+        });
+
+        function syncOTInputsFromShiftOTs() {
+            if (!selectedShift) return;
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            const otInput = document.getElementById('attendance-ot-input');
+            const otMorningInput = document.getElementById('attendance-ot-morning-input');
+            const otAfternoonInput = document.getElementById('attendance-ot-afternoon-input');
+            const otAInput = document.getElementById('attendance-ot-a-input');
+            const otNInput = document.getElementById('attendance-ot-n-input');
+            
+            // Supervisor OT inputs
+            const wsM8Input = document.getElementById('attendance-ws-m8-ot-input');
+            const wsM8MorningInput = document.getElementById('attendance-ws-m8-morning-ot-input');
+            const wsM8AfternoonInput = document.getElementById('attendance-ws-m8-afternoon-ot-input');
+            const wsA14Input = document.getElementById('attendance-ws-a14-ot-input');
+            const wsA14MorningInput = document.getElementById('attendance-ws-a14-morning-ot-input');
+            const wsA14AfternoonInput = document.getElementById('attendance-ws-a14-afternoon-ot-input');
+            const wsNInput = document.getElementById('attendance-ws-n-ot-input');
+            
+            const fullList = [];
+            const morningList = [];
+            const afternoonList = [];
+            const otAList = [];
+            const otNList = [];
+            
+            let wsM8Val = '';
+            let wsM8MorningVal = '';
+            let wsM8AfternoonVal = '';
+            let wsA14Val = '';
+            let wsA14MorningVal = '';
+            let wsA14AfternoonVal = '';
+            let wsNVal = '';
+            
+            (shiftOTs || []).forEach(ot => {
+                const cleanOt = getCleanInitials(ot);
+                const choice = parsedChoices[cleanOt] || '';
+                
+                if (isMorning) {
+                    if (choice === 'W/S M8') {
+                        wsM8Val = cleanOt;
+                        return;
+                    }
+                    if (choice === 'W/S M8/-') {
+                        wsM8MorningVal = cleanOt;
+                        return;
+                    }
+                    if (choice === '-/W/S M8') {
+                        wsM8AfternoonVal = cleanOt;
+                        return;
+                    }
+                    if (choice === 'W/S A14') {
+                        wsA14Val = cleanOt;
+                        return;
+                    }
+                    if (choice === 'W/S A14/-') {
+                        wsA14MorningVal = cleanOt;
+                        return;
+                    }
+                    if (choice === '-/W/S A14') {
+                        wsA14AfternoonVal = cleanOt;
+                        return;
+                    }
+                } else {
+                    if (choice === 'W/S N') {
+                        wsNVal = cleanOt;
+                        return;
+                    }
+                }
+                
+                if (ot.includes('/')) {
+                    const parts = ot.split('/');
+                    if (isMorning) {
+                        if (parts[1] === '-') {
+                            morningList.push(parts[0]);
+                        } else if (parts[0] === '-') {
+                            afternoonList.push(parts[1]);
+                        } else {
+                            fullList.push(ot);
+                        }
+                    } else {
+                        if (parts[1] === 'A') {
+                            otAList.push(parts[0]);
+                        } else if (parts[1] === 'N') {
+                            otNList.push(parts[0]);
+                        }
+                    }
+                } else {
+                    if (isMorning) {
+                        fullList.push(ot);
+                    } else {
+                        otAList.push(ot);
+                    }
+                }
+            });
+            
+            if (otInput) otInput.value = fullList.join(' ');
+            if (otMorningInput) otMorningInput.value = morningList.join(' ');
+            if (otAfternoonInput) otAfternoonInput.value = afternoonList.join(' ');
+            if (otAInput) otAInput.value = otAList.join(' ');
+            if (otNInput) otNInput.value = otNList.join(' ');
+            
+            if (wsM8Input) wsM8Input.value = wsM8Val;
+            if (wsM8MorningInput) wsM8MorningInput.value = wsM8MorningVal;
+            if (wsM8AfternoonInput) wsM8AfternoonInput.value = wsM8AfternoonVal;
+            if (wsA14Input) wsA14Input.value = wsA14Val;
+            if (wsA14MorningInput) wsA14MorningInput.value = wsA14MorningVal;
+            if (wsA14AfternoonInput) wsA14AfternoonInput.value = wsA14AfternoonVal;
+            if (wsNInput) wsNInput.value = wsNVal;
+        }
+
+        function getExpectedQueue() {
+            if (!selectedShift) return [];
+            const wsInitials = (selectedShift.supervisor || '').match(/[A-Z]{2}/g) || [];
+            const queue = selectedShift.queue || [];
+            
+            // Collect any employees serving as W/S from inputs/selections
+            const wsOTs = [];
+            if (selectedShift.shift_type === 'M8/A14') {
+                const wsM8Val = document.getElementById('attendance-ws-m8-ot-input')?.value || '';
+                const wsM8MorningVal = document.getElementById('attendance-ws-m8-morning-ot-input')?.value || '';
+                const wsM8AfternoonVal = document.getElementById('attendance-ws-m8-afternoon-ot-input')?.value || '';
+                const wsA14Val = document.getElementById('attendance-ws-a14-ot-input')?.value || '';
+                const wsA14MorningVal = document.getElementById('attendance-ws-a14-morning-ot-input')?.value || '';
+                const wsA14AfternoonVal = document.getElementById('attendance-ws-a14-afternoon-ot-input')?.value || '';
+                
+                [wsM8Val, wsM8MorningVal, wsM8AfternoonVal, wsA14Val, wsA14MorningVal, wsA14AfternoonVal].forEach(val => {
+                    if (val && val.trim()) wsOTs.push(val.trim().toUpperCase());
+                });
+            } else {
+                const wsNVal = document.getElementById('attendance-ws-n-ot-input')?.value || '';
+                if (wsNVal.trim()) wsOTs.push(wsNVal.trim().toUpperCase());
+            }
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                if (choice && choice.toUpperCase().includes('W/S')) {
+                    wsOTs.push(getCleanInitials(emp));
+                }
+            });
+
+            const expected = queue
+                .filter(emp => !wsInitials.includes(emp))
+                .filter(emp => {
+                    const lt = shiftLeaves[emp];
+                    if (lt === 'full') return false;
+                    // A+N: กรองคนที่ลา (A+leave, N+leave, full) ออกจากคิวที่ต้องเลือกเวร
+                    if (selectedShift && selectedShift.shift_type === 'A+N') {
+                        const st = parseAnState(lt);
+                        if (st.onLeave) return false;
+                    }
+                    return true;
+                })
+                .concat(shiftOTs.filter(ot => !wsOTs.includes(getCleanInitials(ot))));
+            return expected;
+        }
+
+        // Helper: parse composite A+N leave state
+        // Returns { shift: 'A'|'N'|'', onLeave: true|false }
+        function parseAnState(state) {
+            if (!state) return { shift: '', onLeave: false };
+            if (state === 'A+leave') return { shift: 'A', onLeave: true };
+            if (state === 'N+leave') return { shift: 'N', onLeave: true };
+            if (state === 'full') return { shift: '', onLeave: true }; // legacy ลาเต็มวัน
+            if (state === 'A') return { shift: 'A', onLeave: false };
+            if (state === 'N') return { shift: 'N', onLeave: false };
+            return { shift: '', onLeave: false };
+        }
+
+        function selectShift(shift, navigate = true) {
+            const isSameShift = selectedShift && selectedShift.id === shift.id;
+            selectedShift = shift;
+            parsedChoices = {};
+            // Clear per-employee inline OT state only when switching to a DIFFERENT shift
+            // When reloading the same shift after save (navigate=false, isSameShift=true), preserve OT values
+            if (!isSameShift) {
+                Object.keys(empInlineOTMap).forEach(k => delete empInlineOTMap[k]);
+            }
+            
+            // Show the Shift Room link in the sidebar
+            const shiftRoomLink = document.getElementById('nav-shiftroom');
+            shiftRoomLink.style.display = 'flex';
+
+            if (navigate) switchTab('shiftroom');
+            
+            // Update shift room headers
+            const team = getTeamForDate(shift.date, shift.shift_type);
+            let teamLabel = '';
+            if (team === 'purple') {
+                teamLabel = ' | 🟣 ทีมสีม่วง';
+            } else if (team === 'green') {
+                teamLabel = ' | 🟢 ทีมสีเขียว';
+            }
+            document.getElementById('page-title').innerText = `ห้องจัดเวรประจำวันที่ ${shift.date_display}`;
+            document.getElementById('page-subtitle').innerText = `กะ${shift.shift_type === 'M8/A14' ? 'เช้า (M8/A14)' : 'บ่ายดึก (A+N)'}${teamLabel} | Supervisor: ${shift.supervisor || 'ไม่ได้ระบุ'}`;
+
+            // Reset and Auto-detect attendance state (Leaves / OTs)
+            shiftLeaves = {};
+            if (shift.leaves) {
+                if (Array.isArray(shift.leaves)) {
+                    shift.leaves.forEach(emp => { shiftLeaves[emp] = 'full'; });
+                } else {
+                    shiftLeaves = {...shift.leaves};
+                }
+            }
+            
+            // No auto-initialization of A/N assignments. Default is no selection, user will select manually.
+            shiftOTs = shift.ots || [];
+            
+            const wsInitials = (shift.supervisor || '').match(/[A-Z]{2}/g) || [];
+            if (shift.selections) {
+                // Build a set of clean initials already in shiftOTs so we don't add duplicates
+                // (e.g. "-/MA" should prevent plain "MA" from being pushed again)
+                const existingOTClean = new Set(shiftOTs.map(ot => getCleanInitials(ot)));
+                Object.keys(shift.selections).forEach(emp => {
+                    if (!shift.queue.includes(emp) && !wsInitials.includes(emp)) {
+                        const choice = shift.selections[emp];
+                        if (choice && choice.includes('FDO')) {
+                            return;
+                        }
+                        if (!existingOTClean.has(getCleanInitials(emp))) {
+                            shiftOTs.push(emp);
+                            existingOTClean.add(getCleanInitials(emp));
+                        }
+                    }
+                });
+            }
+
+            // Build Shift Room Workspace content
+            const workspace = document.getElementById('workspace-container');
+            const isMorning = shift.shift_type === 'M8/A14';
+            workspace.innerHTML = `
+                <!-- Left Panel -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            📋 ส่งลำดับคิวให้พนักงานเลือก (คัดลอกส่ง Line)
+                        </div>
+                    </div>
+                    <div class="copy-block">
+                        <div class="copy-text" id="line-copy-text-box" style="white-space: pre-wrap; font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; font-size: 0.95rem; line-height: 1.4; color: #111827; background: #FFFFFF; padding: 1rem; border: 1px solid #D0D4DC; border-radius: 0.375rem;"></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="copyLineTextToClipboard()" style="width: 100%; margin-top: 0.75rem;">
+                        คัดลอกข้อความส่ง Line
+                    </button>
+
+                    <!-- Attendance & Leave/OT Controls -->
+                    <div style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1.5rem;">
+                        <div class="form-label" style="font-weight: bold; font-size: 1rem; color: #FFFFFF; margin-bottom: 1rem;">
+                            ⚙️ จัดการวันลาและพนักงานแทน (OT)
+                        </div>
+                        
+                        <!-- Section A: Queue Attendance -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <div style="font-size: 0.85rem; color: #9CA3AF; margin-bottom: 0.5rem; font-weight: 600;">พนักงานในเวรหลัก (Queue Attendance)</div>
+                            <div class="attendance-queue-list" id="attendance-queue-list" style="display: flex; flex-direction: column; gap: 0.50rem;">
+                                <!-- Rendered dynamically -->
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden OT inputs (used by updateCombinedOTs & syncOTInputsFromShiftOTs internally) -->
+                        <div style="display:none;">
+                            <input type="text" id="attendance-ot-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ot-morning-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ot-afternoon-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ws-m8-ot-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ws-m8-morning-ot-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ws-m8-afternoon-ot-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ws-a14-ot-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ws-a14-morning-ot-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ws-a14-afternoon-ot-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ot-a-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ot-n-input" oninput="updateCombinedOTs()">
+                            <input type="text" id="attendance-ws-n-ot-input" oninput="updateCombinedOTs()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel -->
+                <div class="panel" id="shift-room-right-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            📥 วางผลการเลือกพนักงานจาก Line
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">วางข้อความเลือกเวรที่คัดลอกมาจาก Line:</label>
+                        <textarea id="line-paste-input" style="min-height: 120px;" placeholder="ตัวอย่าง:&#10;KJ 1&#10;PR 3&#10;BP 2&#10;SN W/S A14&#10;..." oninput="onLineResultsChange()"></textarea>
+                    </div>
+
+                    <div class="parser-results">
+                        <div class="form-label">สถานะการเลือกเวรของพนักงาน</div>
+                        <div class="employees-status-grid" id="parser-status-grid">
+                            <!-- Populated reactively -->
+                        </div>
+                        <div id="parse-summary-pill" class="status-pill warning" style="display: none; margin-top: 0.75rem;">
+                            <span id="parse-summary-text">รอวางข้อความจัดเวร</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Preview Grid -->
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label class="form-label">ตารางตำแหน่งจัดเวรจำลอง:</label>
+                        <div class="preview-grid-wrapper" id="preview-grid-wrapper">
+                            <!-- Populated reactively -->
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
+                        <button class="btn btn-primary" id="save-selections-btn" style="width: 100%; padding: 1rem; font-size: 1rem;" onclick="saveSelectionsToDB()">
+                            บันทึกผลการจัดเวรลงฐานข้อมูล
+                        </button>
+                        <button class="btn btn-secondary" style="width: 100%; padding: 0.75rem; font-size: 0.95rem; background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3);" onclick="viewHourlyLog(${shift.id})">
+                            📋 ดูตารางชั่วโมงการทำงาน (Log)
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Pre-load FDO and W/S assignments directly into parsedChoices so they survive
+            // even if the assigned employee is not in the roster/queue lookup.
+            if (shift.selections) {
+                Object.entries(shift.selections).forEach(([emp, choice]) => {
+                    if (choice && (choice.toUpperCase().includes('FDO') || choice.toUpperCase().includes('W/S'))) {
+                        parsedChoices[emp] = choice;
+                    }
+                });
+            }
+
+            // If shift already has choices, load them into textarea
+            if (Object.keys(shift.selections).length > 0) {
+                let lines = [];
+                // Sort by expected queue to match the pasted checklist, then append any remaining choices
+                // Use clean initials as the display name so "BB/-" → "BB" in the textarea
+                const expected = getExpectedQueue();
+                const added = new Set();
+                expected.forEach(emp => {
+                    if (shift.selections[emp]) {
+                        lines.push(`${getCleanInitials(emp)} ${shift.selections[emp]}`);
+                        added.add(emp);
+                    }
+                });
+                Object.keys(shift.selections).forEach(emp => {
+                    if (!added.has(emp)) {
+                        lines.push(`${getCleanInitials(emp)} ${shift.selections[emp]}`);
+                    }
+                });
+                document.getElementById('line-paste-input').value = lines.join('\n');
+            }
+
+            // Populate OT inputs if existing selections contain OT employees
+            syncOTInputsFromShiftOTs();
+
+            // Update copy text and render interactive buttons
+            updateLineCopyText();
+            renderAttendanceControls();
+            // Restore inline OT values into hidden inputs after re-render
+            syncInlineOTsToHiddenInputs();
+            syncAnInlineOTsToHiddenInputs();
+
+            onLineResultsChange();
+        }
+
+        function updateLineCopyText() {
+            if (!selectedShift) return;
+            
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            const wsInitials = (selectedShift.supervisor || '').match(/[A-Z]{2}/g) || [];
+            
+            // Format supervisor line beautifully by dynamically checking who is assigned W/S roles
+            const svParts = (selectedShift.supervisor || '').split(/[\/-]/).map(s => s.trim().toUpperCase());
+            let wsM8Working = svParts[0] || 'ไม่มี';
+            let wsA14Working = svParts[1] || 'ไม่มี';
+            let wsNWorking = svParts[0] || 'ไม่มี';
+            
+            // Resolve actual working supervisors from parsedChoices
+            // For W/S M8: handle full / half-morning / half-afternoon leave formats
+            let wsM8Morning = '';  // who covers morning slot
+            let wsM8Afternoon = ''; // who covers afternoon slot
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                const ch = choice.trim().toUpperCase();
+                const clean = getCleanInitials(emp);
+                if (ch === 'W/S M8') {
+                    // Full day — same person covers both
+                    wsM8Morning = clean;
+                    wsM8Afternoon = clean;
+                } else if (ch === 'W/S M8/-') {
+                    // This person covers morning only
+                    wsM8Morning = clean;
+                } else if (ch === '-/W/S M8') {
+                    // This person covers afternoon only
+                    wsM8Afternoon = clean;
+                }
+            });
+            // Build wsM8Working display string — always morning/afternoon order
+            if (wsM8Morning && wsM8Afternoon) {
+                if (wsM8Morning === wsM8Afternoon) {
+                    wsM8Working = wsM8Morning;  // same person full day
+                } else {
+                    // ลาครึ่งเช้า: XA covers morning, PB works afternoon → "XA/PB"
+                    // ลาครึ่งบ่าย: PB works morning, XA covers afternoon → "PB/XA"
+                    wsM8Working = `${wsM8Morning}/${wsM8Afternoon}`;
+                }
+            } else if (wsM8Morning || wsM8Afternoon) {
+                wsM8Working = wsM8Morning || wsM8Afternoon;
+            }
+
+            // For W/S A14: handle full / half-morning / half-afternoon leave formats
+            let wsA14Morning = '';  // who covers morning slot
+            let wsA14Afternoon = ''; // who covers afternoon slot
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                const ch = choice.trim().toUpperCase();
+                const clean = getCleanInitials(emp);
+                if (ch === 'W/S A14') {
+                    // Full day — same person covers both
+                    wsA14Morning = clean;
+                    wsA14Afternoon = clean;
+                } else if (ch === 'W/S A14/-') {
+                    // This person covers morning only
+                    wsA14Morning = clean;
+                } else if (ch === '-/W/S A14') {
+                    // This person covers afternoon only
+                    wsA14Afternoon = clean;
+                }
+            });
+            // Build wsA14Working display string — always morning/afternoon order
+            if (wsA14Morning && wsA14Afternoon) {
+                if (wsA14Morning === wsA14Afternoon) {
+                    wsA14Working = wsA14Morning;  // same person full day
+                } else {
+                    // ลาครึ่งเช้า: XA covers morning, PB works afternoon → "XA/PB"
+                    // ลาครึ่งบ่าย: PB works morning, XA covers afternoon → "PB/XA"
+                    wsA14Working = `${wsA14Morning}/${wsA14Afternoon}`;
+                }
+            } else if (wsA14Morning || wsA14Afternoon) {
+                wsA14Working = wsA14Morning || wsA14Afternoon;
+            }
+            
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                if (choice.trim().toUpperCase() === 'W/S N') {
+                    wsNWorking = getCleanInitials(emp);
+                }
+            });
+            
+            let supervisorLine = '';
+            if (isMorning) {
+                if (svParts.length >= 2) {
+                    supervisorLine = `W/S ${wsM8Working} M8 - ${wsA14Working} A14`;
+                } else {
+                    supervisorLine = `W/S ${wsM8Working} M8`;
+                }
+            } else {
+                supervisorLine = `W/S N ${wsNWorking}`;
+            }
+
+            let text = "ขออนุญาตซุปครับ\n";
+            text += "เลือก log\n";
+            text += `${selectedShift.date_display}\n`;
+            text += `${supervisorLine}\n\n`;
+
+            // Active Queue list (excluding W/S, full leaves, and any employee on leave in A+N)
+            const activeQueue = selectedShift.queue
+                .filter(emp => !wsInitials.includes(emp))
+                .filter(emp => {
+                    const lt = shiftLeaves[emp];
+                    if (lt === 'full') return false;
+                    // A+N: ถ้าลา (ไม่ว่าจะมีกะหรือไม่) ไม่แสดงในลิสต์
+                    if (selectedShift.shift_type === 'A+N') {
+                        const st = parseAnState(lt);
+                        if (st.onLeave) return false;
+                    }
+                    return true;
+                });
+            
+            activeQueue.forEach(emp => {
+                const leaveType = shiftLeaves[emp];
+                if (selectedShift.shift_type === 'A+N') {
+                    const st = parseAnState(leaveType);
+                    if (st.shift === 'A') {
+                        text += `${emp} A\n`;
+                    } else if (st.shift === 'N') {
+                        text += `${emp} N\n`;
+                    } else {
+                        text += `${emp}\n`;
+                    }
+                } else {
+                    if (leaveType === 'half-morning') {
+                        text += `${emp} -/\n`;
+                    } else if (leaveType === 'half-afternoon') {
+                        text += `${emp} /-\n`;
+                    } else {
+                        text += `${emp}\n`;
+                    }
+                }
+            });
+
+            // OT list (excluding anyone working as W/S)
+            const activeOTs = (shiftOTs || []).filter(emp => {
+                const cleanEmp = getCleanInitials(emp);
+                const choice = parsedChoices[cleanEmp] || '';
+                return !choice.includes('W/S');
+            });
+
+            if (activeOTs.length > 0) {
+                text += `\nOT\n`;
+                activeOTs.forEach(emp => {
+                    if (selectedShift.shift_type === 'A+N') {
+                        if (emp.includes('/')) {
+                            const parts = emp.split('/');
+                            text += `${parts[0]} ${parts[1]}\n`;
+                        } else {
+                            text += `${emp}\n`;
+                        }
+                    } else {
+                        if (emp.includes('/')) {
+                            const parts = emp.split('/');
+                            if (parts[1] === '-') {
+                                text += `${parts[0]} /-\n`;
+                            } else if (parts[0] === '-') {
+                                text += `${parts[1]} -/\n`;
+                            } else {
+                                text += `${emp}\n`;
+                            }
+                        } else {
+                            text += `${emp}\n`;
+                        }
+                    }
+                });
+            }
+
+            const box = document.getElementById('line-copy-text-box');
+            if (box) {
+                box.innerText = text;
+            }
+        }
+
+        function renderAttendanceControls() {
+            if (!selectedShift) return;
+            const wsInitials = (selectedShift.supervisor || '').match(/[A-Z]{2}/g) || [];
+            
+            // 1. Render Queue Attendance List
+            const queueListContainer = document.getElementById('attendance-queue-list');
+            if (queueListContainer) {
+                queueListContainer.innerHTML = '';
+                
+                // Create a list of employees to render: Supervisors first, then other queue members
+                const listToRender = [];
+                wsInitials.forEach(ws => {
+                    if (ws && !listToRender.includes(ws)) listToRender.push(ws);
+                });
+                
+                selectedShift.queue.forEach(emp => {
+                    if (!listToRender.includes(emp)) {
+                        listToRender.push(emp);
+                    }
+                });
+
+                listToRender.forEach(emp => {
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.justifyContent = 'space-between';
+                    row.style.alignItems = 'center';
+                    row.style.padding = '0.5rem 0.75rem';
+                    row.style.borderRadius = '0.375rem';
+                    row.style.border = '1px solid rgba(255,255,255,0.05)';
+                    
+                    if (wsInitials.includes(emp)) {
+                        // Supervisor Attendance Control
+                        const isMorning = selectedShift.shift_type === 'M8/A14';
+                        const svParts = (selectedShift.supervisor || '').split(/[\/-]/).map(s => s.trim().toUpperCase());
+                        
+                        if (isMorning) {
+                            const leaveType = shiftLeaves[emp] || 'active';
+                            let badgeText = '';
+                            let wsInputId = '';
+                            let wsOTInputIds = [];
+                            
+                            if (emp === svParts[0]) {
+                                badgeText = 'W/S M8';
+                                wsOTInputIds = [
+                                    { id: 'attendance-ws-m8-ot-input',          label: 'OT แทน (เต็มวัน)', showWhen: 'full' },
+                                    { id: 'attendance-ws-m8-morning-ot-input',  label: 'OT แทน (ครึ่งเช้า)', showWhen: 'half-morning' },
+                                    { id: 'attendance-ws-m8-afternoon-ot-input',label: 'OT แทน (ครึ่งบ่าย)', showWhen: 'half-afternoon' },
+                                ];
+                            } else if (svParts.length >= 2 && emp === svParts[1]) {
+                                badgeText = 'W/S A14';
+                                wsOTInputIds = [
+                                    { id: 'attendance-ws-a14-ot-input',          label: 'OT แทน (เต็มวัน)', showWhen: 'full' },
+                                    { id: 'attendance-ws-a14-morning-ot-input',  label: 'OT แทน (ครึ่งเช้า)', showWhen: 'half-morning' },
+                                    { id: 'attendance-ws-a14-afternoon-ot-input',label: 'OT แทน (ครึ่งบ่าย)', showWhen: 'half-afternoon' },
+                                ];
+                            }
+                            
+                            let selectStyle = '';
+                            if (leaveType === 'active') selectStyle = 'border-color: rgba(16, 185, 129, 0.4); color: #10B981; background: rgba(16, 185, 129, 0.05);';
+                            else if (leaveType === 'full') selectStyle = 'border-color: rgba(239, 68, 68, 0.4); color: #EF4444; background: rgba(239, 68, 68, 0.05);';
+                            else selectStyle = 'border-color: rgba(245, 158, 11, 0.4); color: #F59E0B; background: rgba(245, 158, 11, 0.05);';
+
+                            // Build inline OT input for the active leave type
+                            const activeOTSlot = wsOTInputIds.find(s => s.showWhen === leaveType);
+                            const inlineOTHtml = (leaveType !== 'active' && activeOTSlot) ? `
+                                <input type="text"
+                                    class="form-input"
+                                    placeholder="${activeOTSlot.label}"
+                                    value="${document.getElementById(activeOTSlot.id)?.value || ''}"
+                                    style="width:90px; padding:0.2rem 0.4rem; font-size:0.78rem; border-radius:0.25rem; font-family:monospace; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#FFF;"
+                                    oninput="document.getElementById('${activeOTSlot.id}').value=this.value.trim().toUpperCase(); updateCombinedOTs();">
+                            ` : '';
+                            
+                            row.style.background = 'rgba(255, 255, 255, 0.03)';
+                            row.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                            row.innerHTML = `
+                                <div>
+                                    <span style="font-weight: bold; color: ${leaveType === 'active' ? '#E5E7EB' : (leaveType === 'full' ? '#EF4444' : '#F59E0B')}; ${leaveType === 'full' ? 'text-decoration: line-through;' : ''}">${emp}</span>
+                                    <span class="status-badge" style="font-size: 0.7rem; background: rgba(99, 102, 241, 0.15); color: #818CF8; padding: 0.1rem 0.35rem; border-radius: 0.25rem; margin-left: 0.5rem; font-weight: 600;">${badgeText}</span>
+                                </div>
+                                <div style="display:flex; gap:0.4rem; align-items:center;">
+                                    <select class="form-input" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; ${selectStyle}" onchange="changeShiftLeave('${emp}', this.value)">
+                                        <option value="active" ${leaveType === 'active' ? 'selected' : ''}>🟢 ทำงาน</option>
+                                        <option value="full" ${leaveType === 'full' ? 'selected' : ''}>🔴 ลาเต็มวัน</option>
+                                        <option value="half-morning" ${leaveType === 'half-morning' ? 'selected' : ''}>🌅 ลาครึ่งเช้า</option>
+                                        <option value="half-afternoon" ${leaveType === 'half-afternoon' ? 'selected' : ''}>🌇 ลาครึ่งบ่าย</option>
+                                    </select>
+                                    ${inlineOTHtml}
+                                </div>
+                            `;
+                        } else {
+                            // A+N shift: W/S N supervisor
+                            const leaveType = shiftLeaves[emp] || 'active';
+                            let badgeText = 'W/S N';
+                            let selectStyle = '';
+                            if (leaveType === 'active') selectStyle = 'border-color: rgba(16, 185, 129, 0.4); color: #10B981; background: rgba(16, 185, 129, 0.05);';
+                            else selectStyle = 'border-color: rgba(239, 68, 68, 0.4); color: #EF4444; background: rgba(239, 68, 68, 0.05);';
+                            
+                            const wsNInlineOT = leaveType === 'full' ? `
+                                <input type="text"
+                                    class="form-input"
+                                    placeholder="OT แทน W/S N"
+                                    value="${document.getElementById('attendance-ws-n-ot-input')?.value || ''}"
+                                    style="width:90px; padding:0.2rem 0.4rem; font-size:0.78rem; border-radius:0.25rem; font-family:monospace; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#FFF;"
+                                    oninput="document.getElementById('attendance-ws-n-ot-input').value=this.value.trim().toUpperCase(); updateCombinedOTs();">
+                            ` : '';
+                            
+                            row.style.background = 'rgba(255, 255, 255, 0.03)';
+                            row.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                            row.innerHTML = `
+                                <div>
+                                    <span style="font-weight: bold; color: ${leaveType === 'active' ? '#E5E7EB' : '#EF4444'}; ${leaveType === 'full' ? 'text-decoration: line-through;' : ''}">${emp}</span>
+                                    <span class="status-badge" style="font-size: 0.7rem; background: rgba(99, 102, 241, 0.15); color: #818CF8; padding: 0.1rem 0.35rem; border-radius: 0.25rem; margin-left: 0.5rem; font-weight: 600;">${badgeText}</span>
+                                </div>
+                                <div style="display:flex; gap:0.4rem; align-items:center;">
+                                    <select class="form-input" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; ${selectStyle}" onchange="changeShiftLeave('${emp}', this.value)">
+                                        <option value="active" ${leaveType === 'active' ? 'selected' : ''}>🟢 ทำงาน</option>
+                                        <option value="full" ${leaveType === 'full' ? 'selected' : ''}>🔴 ลาเต็มวัน</option>
+                                    </select>
+                                    ${wsNInlineOT}
+                                </div>
+                            `;
+                        }
+                    } else {
+                        // Regular queue employee
+                        const leaveType = shiftLeaves[emp] || 'active';
+                        const isMorning = selectedShift.shift_type === 'M8/A14';
+                        
+                        if (isMorning) {
+                            let selectStyle = '';
+                            if (leaveType === 'active') selectStyle = 'border-color: rgba(16, 185, 129, 0.4); color: #10B981; background: rgba(16, 185, 129, 0.05);';
+                            else if (leaveType === 'full') selectStyle = 'border-color: rgba(239, 68, 68, 0.4); color: #EF4444; background: rgba(239, 68, 68, 0.05);';
+                            else selectStyle = 'border-color: rgba(245, 158, 11, 0.4); color: #F59E0B; background: rgba(245, 158, 11, 0.05);';
+
+                            // Determine which hidden OT input to sync to based on leave type
+                            const otInputMap = {
+                                'full':           { id: 'attendance-ot-input',          label: 'OT แทน (เต็มวัน)' },
+                                'half-morning':   { id: 'attendance-ot-morning-input',   label: 'OT แทน (ครึ่งเช้า)' },
+                                'half-afternoon': { id: 'attendance-ot-afternoon-input',  label: 'OT แทน (ครึ่งบ่าย)' },
+                            };
+                            const otSlot = otInputMap[leaveType];
+                            const inlineOTHtml = otSlot ? `
+                                <input type="text"
+                                    class="form-input"
+                                    data-ot-for="${emp}"
+                                    data-ot-target="${otSlot.id}"
+                                    placeholder="${otSlot.label}"
+                                    value="${getInlineOTValue(emp, leaveType)}"
+                                    style="width:90px; padding:0.2rem 0.4rem; font-size:0.78rem; border-radius:0.25rem; font-family:monospace; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#FFF;"
+                                    oninput="setInlineOT('${emp}', '${leaveType}', this.value)">
+                            ` : '';
+
+                            row.innerHTML = `
+                                <span style="font-weight: bold; color: ${leaveType === 'active' ? '#10B981' : (leaveType === 'full' ? '#EF4444' : '#F59E0B')}; ${leaveType === 'full' ? 'text-decoration: line-through;' : ''}">${emp}</span>
+                                <div style="display:flex; gap:0.4rem; align-items:center;">
+                                    <select class="form-input" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; ${selectStyle}" onchange="changeShiftLeave('${emp}', this.value)">
+                                        <option value="active" ${leaveType === 'active' ? 'selected' : ''}>🟢 ทำงาน</option>
+                                        <option value="full" ${leaveType === 'full' ? 'selected' : ''}>🔴 ลาเต็มวัน</option>
+                                        <option value="half-morning" ${leaveType === 'half-morning' ? 'selected' : ''}>🌅 ลาครึ่งเช้า</option>
+                                        <option value="half-afternoon" ${leaveType === 'half-afternoon' ? 'selected' : ''}>🌇 ลาครึ่งบ่าย</option>
+                                    </select>
+                                    ${inlineOTHtml}
+                                </div>
+                            `;
+                        } else {
+                            // A+N shift: multi-select toggle buttons (A/N and ลา can be active together)
+                            const st = parseAnState(leaveType);
+                            const shiftA = st.shift === 'A';
+                            const shiftN = st.shift === 'N';
+                            const onLeave = st.onLeave;
+
+                            // Row background color based on state
+                            row.style.background = 'rgba(255,255,255,0.03)';
+                            row.style.borderColor = 'rgba(255,255,255,0.05)';
+                            if (onLeave && !shiftA && !shiftN) {
+                                row.style.background = 'rgba(239, 68, 68, 0.08)';
+                                row.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                            } else if (onLeave && shiftA) {
+                                row.style.background = 'rgba(16, 185, 129, 0.06)';
+                                row.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+                            } else if (onLeave && shiftN) {
+                                row.style.background = 'rgba(99, 102, 241, 0.06)';
+                                row.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+                            }
+
+                            // Name color
+                            let nameColor = '#E5E7EB';
+                            if (shiftA && onLeave) nameColor = '#F59E0B'; // Amber: A + ลา
+                            else if (shiftN && onLeave) nameColor = '#F59E0B';
+                            else if (shiftA) nameColor = '#10B981'; // Green: A only
+                            else if (shiftN) nameColor = '#6366F1'; // Indigo: N only
+                            else if (onLeave) nameColor = '#EF4444'; // Red: ลา only
+
+                            // Badge label
+                            let badge = '';
+                            if (shiftA && onLeave) badge = '<span style="font-size:0.68rem;background:rgba(245,158,11,0.18);color:#F59E0B;padding:0.1rem 0.35rem;border-radius:0.25rem;margin-left:0.4rem;font-weight:700;">A + ลา</span>';
+                            else if (shiftN && onLeave) badge = '<span style="font-size:0.68rem;background:rgba(245,158,11,0.18);color:#F59E0B;padding:0.1rem 0.35rem;border-radius:0.25rem;margin-left:0.4rem;font-weight:700;">N + ลา</span>';
+                            else if (onLeave) badge = '<span style="font-size:0.68rem;background:rgba(239,68,68,0.18);color:#EF4444;padding:0.1rem 0.35rem;border-radius:0.25rem;margin-left:0.4rem;font-weight:700;">ลา</span>';
+
+                            const btnAStyle = shiftA
+                                ? 'background: #10B981; color: #fff; border-color: #10B981; font-weight: bold;'
+                                : 'background: rgba(16,185,129,0.05); color: #10B981; border-color: rgba(16,185,129,0.3);';
+
+                            const btnNStyle = shiftN
+                                ? 'background: #6366F1; color: #fff; border-color: #6366F1; font-weight: bold;'
+                                : 'background: rgba(99,102,241,0.05); color: #6366F1; border-color: rgba(99,102,241,0.3);';
+
+                            const btnLStyle = onLeave
+                                ? 'background: #EF4444; color: #fff; border-color: #EF4444; font-weight: bold;'
+                                : 'background: rgba(239,68,68,0.05); color: #EF4444; border-color: rgba(239,68,68,0.3);';
+
+                            // Inline OT input when on leave
+                            const anOTTargetId = shiftA ? 'attendance-ot-a-input' : (shiftN ? 'attendance-ot-n-input' : 'attendance-ot-a-input');
+                            const anOTLeaveKey = shiftA ? 'an-leave-a' : (shiftN ? 'an-leave-n' : 'an-leave');
+                            const anOTPlaceholder = shiftA ? 'OT แทน (กะบ่าย)' : (shiftN ? 'OT แทน (กะดึก)' : 'OT แทน');
+                            const anInlineOTHtml = onLeave ? `
+                                <input type="text"
+                                    class="form-input"
+                                    placeholder="${anOTPlaceholder}"
+                                    value="${getInlineOTValue(emp, anOTLeaveKey)}"
+                                    style="width:90px; padding:0.2rem 0.4rem; font-size:0.78rem; border-radius:0.25rem; font-family:monospace; background:rgba(255,255,255,0.06); border:1px solid rgba(239,68,68,0.35); color:#FFF;"
+                                    oninput="setAnInlineOT('${emp}', '${anOTLeaveKey}', '${anOTTargetId}', this.value)">
+                            ` : '';
+
+                            row.innerHTML = `
+                                <div style="display:flex;align-items:center;gap:0.3rem;">
+                                    <span style="font-weight: bold; color: ${nameColor};">${emp}</span>
+                                    ${badge}
+                                </div>
+                                <div style="display: flex; gap: 0.35rem; align-items:center; flex-wrap:wrap;">
+                                    <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; ${btnAStyle}" onclick="changeShiftLeave('${emp}', 'A')">
+                                        บ่าย (A)
+                                    </button>
+                                    <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; ${btnNStyle}" onclick="changeShiftLeave('${emp}', 'N')">
+                                        ดึก (N)
+                                    </button>
+                                    <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; ${btnLStyle}" onclick="changeShiftLeave('${emp}', 'leave')">
+                                        ลา
+                                    </button>
+                                    ${anInlineOTHtml}
+                                </div>
+                            `;
+                        }
+                    }
+                    queueListContainer.appendChild(row);
+                });
+            }
+        }
+
+        function changeShiftLeave(emp, value) {
+            if (selectedShift && selectedShift.shift_type === 'A+N') {
+                const wsInitials = (selectedShift.supervisor || '').match(/[A-Z]{2}/g) || [];
+                if (wsInitials.includes(emp)) {
+                    // W/S supervisor: simple toggle
+                    if (value === 'active') delete shiftLeaves[emp];
+                    else shiftLeaves[emp] = value;
+                } else {
+                    // Regular queue employee: composite multi-select state
+                    const st = parseAnState(shiftLeaves[emp]);
+                    if (value === 'A') {
+                        // Toggle shift A (off if already A)
+                        const newShift = st.shift === 'A' ? '' : 'A';
+                        if (!newShift && !st.onLeave) delete shiftLeaves[emp];
+                        else if (!newShift) shiftLeaves[emp] = 'full'; // only leave
+                        else shiftLeaves[emp] = st.onLeave ? 'A+leave' : 'A';
+                    } else if (value === 'N') {
+                        // Toggle shift N (off if already N)
+                        const newShift = st.shift === 'N' ? '' : 'N';
+                        if (!newShift && !st.onLeave) delete shiftLeaves[emp];
+                        else if (!newShift) shiftLeaves[emp] = 'full'; // only leave
+                        else shiftLeaves[emp] = st.onLeave ? 'N+leave' : 'N';
+                    } else if (value === 'leave') {
+                        // Toggle leave on/off (keep shift unchanged)
+                        const newLeave = !st.onLeave;
+                        if (!newLeave && !st.shift) delete shiftLeaves[emp];
+                        else if (!newLeave) shiftLeaves[emp] = st.shift; // A or N
+                        else shiftLeaves[emp] = st.shift ? `${st.shift}+leave` : 'full';
+                    } else if (value === 'full') {
+                        // Legacy full leave
+                        shiftLeaves[emp] = 'full';
+                    } else if (value === 'active') {
+                        delete shiftLeaves[emp];
+                    }
+                }
+            } else {
+                if (value === 'active') {
+                    delete shiftLeaves[emp];
+                } else {
+                    shiftLeaves[emp] = value;
+                }
+            }
+            updateLineCopyText();
+            renderAttendanceControls();
+            onLineResultsChange();
+        }
+
+        function copyLineTextToClipboard() {
+            const text = document.getElementById('line-copy-text-box').innerText;
+            navigator.clipboard.writeText(text)
+                .then(() => showToast("คัดลอกข้อความสำหรับ Line เรียบร้อยแล้ว", "success"))
+                .catch(() => showToast("ไม่สามารถคัดลอกข้อความได้", "error"));
+        }
+
+        // Per-employee inline OT map: { empName: { leaveType: 'INITIALS' } }
+        // Used by regular queue employees (M8/A14 shift) to record who covers them
+        const empInlineOTMap = {};
+
+        function getInlineOTValue(emp, leaveType) {
+            return (empInlineOTMap[emp] && empInlineOTMap[emp][leaveType]) || '';
+        }
+
+        function setInlineOT(emp, leaveType, rawValue) {
+            const val = rawValue.trim().toUpperCase();
+            if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+            if (val) {
+                empInlineOTMap[emp][leaveType] = val;
+            } else {
+                delete empInlineOTMap[emp][leaveType];
+            }
+            // Rebuild hidden OT inputs from empInlineOTMap
+            syncInlineOTsToHiddenInputs();
+            updateCombinedOTs();
+        }
+
+        function syncInlineOTsToHiddenInputs() {
+            if (!selectedShift) return;
+            // Gather all values per leave type bucket
+            const fullList = [], morningList = [], afternoonList = [];
+            Object.entries(empInlineOTMap).forEach(([emp, typeMap]) => {
+                if (typeMap['full'])           fullList.push(typeMap['full']);
+                if (typeMap['half-morning'])   morningList.push(typeMap['half-morning']);
+                if (typeMap['half-afternoon']) afternoonList.push(typeMap['half-afternoon']);
+            });
+            const otInput = document.getElementById('attendance-ot-input');
+            const otMorning = document.getElementById('attendance-ot-morning-input');
+            const otAfternoon = document.getElementById('attendance-ot-afternoon-input');
+            if (otInput) otInput.value = fullList.join(' ');
+            if (otMorning) otMorning.value = morningList.join(' ');
+            if (otAfternoon) otAfternoon.value = afternoonList.join(' ');
+        }
+
+        function setAnInlineOT(emp, leaveKey, targetInputId, rawValue) {
+            const val = rawValue.trim().toUpperCase();
+            if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+            if (val) {
+                empInlineOTMap[emp][leaveKey] = val;
+            } else {
+                delete empInlineOTMap[emp][leaveKey];
+            }
+            // Rebuild the target hidden input from all employees using the same target
+            syncAnInlineOTsToHiddenInputs();
+            updateCombinedOTs();
+        }
+
+        function syncAnInlineOTsToHiddenInputs() {
+            if (!selectedShift) return;
+            const aList = [], nList = [], defaultList = [];
+            Object.entries(empInlineOTMap).forEach(([emp, typeMap]) => {
+                if (typeMap['an-leave-a']) aList.push(typeMap['an-leave-a']);
+                if (typeMap['an-leave-n']) nList.push(typeMap['an-leave-n']);
+                if (typeMap['an-leave'])   defaultList.push(typeMap['an-leave']);
+            });
+            const otAInput = document.getElementById('attendance-ot-a-input');
+            const otNInput = document.getElementById('attendance-ot-n-input');
+            // merge 'an-leave' (no shift selected) into A list as fallback
+            if (otAInput) otAInput.value = [...aList, ...defaultList].join(' ');
+            if (otNInput) otNInput.value = nList.join(' ');
+        }
+
+        function updateCombinedOTs() {
+            if (!selectedShift) return;
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            
+            if (isMorning) {
+                const fullVal = document.getElementById('attendance-ot-input')?.value || '';
+                const morningVal = document.getElementById('attendance-ot-morning-input')?.value || '';
+                const afternoonVal = document.getElementById('attendance-ot-afternoon-input')?.value || '';
+                
+                // Read supervisor OT replacements
+                const wsM8Val = document.getElementById('attendance-ws-m8-ot-input')?.value || '';
+                const wsM8MorningVal = document.getElementById('attendance-ws-m8-morning-ot-input')?.value || '';
+                const wsM8AfternoonVal = document.getElementById('attendance-ws-m8-afternoon-ot-input')?.value || '';
+                const wsA14Val = document.getElementById('attendance-ws-a14-ot-input')?.value || '';
+                const wsA14MorningVal = document.getElementById('attendance-ws-a14-morning-ot-input')?.value || '';
+                const wsA14AfternoonVal = document.getElementById('attendance-ws-a14-afternoon-ot-input')?.value || '';
+                
+                const fullOTs = fullVal.split(/[\s,;\n]+/)
+                    .map(s => s.trim().toUpperCase())
+                    .filter(s => s.length > 0);
+                
+                const morningOTs = morningVal.split(/[\s,;\n]+/)
+                    .map(s => s.trim().toUpperCase())
+                    .filter(s => s.length > 0)
+                    .map(s => `${s}/-`);
+                
+                const afternoonOTs = afternoonVal.split(/[\s,;\n]+/)
+                    .map(s => s.trim().toUpperCase())
+                    .filter(s => s.length > 0)
+                    .map(s => `-/${s}`);
+                    
+                const wsOTs = [];
+                if (wsM8Val.trim()) {
+                    wsOTs.push(wsM8Val.trim().toUpperCase());
+                }
+                if (wsM8MorningVal.trim()) {
+                    wsOTs.push(`${wsM8MorningVal.trim().toUpperCase()}/-`);
+                }
+                if (wsM8AfternoonVal.trim()) {
+                    wsOTs.push(`-/${wsM8AfternoonVal.trim().toUpperCase()}`);
+                }
+                if (wsA14Val.trim()) {
+                    wsOTs.push(wsA14Val.trim().toUpperCase());
+                }
+                if (wsA14MorningVal.trim()) {
+                    wsOTs.push(`${wsA14MorningVal.trim().toUpperCase()}/-`);
+                }
+                if (wsA14AfternoonVal.trim()) {
+                    wsOTs.push(`-/${wsA14AfternoonVal.trim().toUpperCase()}`);
+                }
+                    
+                shiftOTs = [...fullOTs, ...morningOTs, ...afternoonOTs, ...wsOTs];
+            } else {
+                const otAVal = document.getElementById('attendance-ot-a-input')?.value || '';
+                const otNVal = document.getElementById('attendance-ot-n-input')?.value || '';
+                const wsNVal = document.getElementById('attendance-ws-n-ot-input')?.value || '';
+                
+                const otAEmps = otAVal.split(/[\s,;\n]+/)
+                    .map(s => s.trim().toUpperCase())
+                    .filter(s => s.length > 0)
+                    .map(s => `${s}/A`);
+                
+                const otNEmps = otNVal.split(/[\s,;\n]+/)
+                    .map(s => s.trim().toUpperCase())
+                    .filter(s => s.length > 0)
+                    .map(s => `${s}/N`);
+                
+                const wsOTs = [];
+                if (wsNVal.trim()) {
+                    wsOTs.push(wsNVal.trim().toUpperCase());
+                }
+                
+                shiftOTs = [...otAEmps, ...otNEmps, ...wsOTs];
+            }
+            
+            // Clear FDO choices if the employee is now in shiftOTs
+            const cleanOTs = shiftOTs.map(ot => getCleanInitials(ot));
+            let changed = false;
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                if (choice.includes('FDO') && cleanOTs.includes(getCleanInitials(emp))) {
+                    delete parsedChoices[emp];
+                    changed = true;
+                }
+            });
+            if (changed) {
+                renderShiftRoomPreviewGrid();
+            }
+            
+            updateLineCopyText();
+            onLineResultsChange();
+        }
+
+        function syncShiftOTsFromSelections() {
+            if (!selectedShift) return;
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            const wsInitials = (selectedShift.supervisor || '').match(/[A-Z]{2}/g) || [];
+            const queue = selectedShift.queue || [];
+            
+            const currentOTs = [...shiftOTs];
+            const assignedCleanOTs = new Set();
+            const newShiftOTs = [];
+            
+            // 1. Process all currently assigned choices
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                const cleanEmp = getCleanInitials(emp);
+                if (queue.includes(cleanEmp) || wsInitials.includes(cleanEmp)) {
+                    return;
+                }
+                if (choice.includes('FDO')) {
+                    return;
+                }
+                if (choice.toUpperCase().includes('W/S')) {
+                    return;
+                }
+                
+                // Skip employees with no choice yet — step 2 will restore their
+                // original OT format (e.g. "BB/-") from currentOTs
+                if (!choice || !choice.trim()) {
+                    return;
+                }
+                
+                assignedCleanOTs.add(cleanEmp);
+                
+                if (isMorning) {
+                    if (choice.includes('/')) {
+                        const parts = choice.split('/');
+                        const mPart = parts[0].trim();
+                        const aPart = parts[1].trim();
+                        if (mPart !== '-' && aPart === '-') {
+                            newShiftOTs.push(`${cleanEmp}/-`);
+                        } else if (mPart === '-' && aPart !== '-') {
+                            newShiftOTs.push(`-/${cleanEmp}`);
+                        } else {
+                            newShiftOTs.push(cleanEmp);
+                        }
+                    } else {
+                        newShiftOTs.push(cleanEmp);
+                    }
+                } else {
+                    if (choice.startsWith('A')) {
+                        newShiftOTs.push(`${cleanEmp}/A`);
+                    } else if (choice.startsWith('N')) {
+                        newShiftOTs.push(`${cleanEmp}/N`);
+                    } else {
+                        newShiftOTs.push(cleanEmp);
+                    }
+                }
+            });
+            
+            // 2. Add back any OTs that were in shiftOTs but are not assigned to any slot yet
+            currentOTs.forEach(ot => {
+                const cleanOt = getCleanInitials(ot);
+                if (!assignedCleanOTs.has(cleanOt)) {
+                    newShiftOTs.push(ot);
+                }
+            });
+            
+            shiftOTs = newShiftOTs;
+        }
+
+        // Live Parser for database shift room
+        function formatChoiceForEmployee(emp, rawChoice, isMorning) {
+            let choice = rawChoice.trim().toUpperCase();
+            
+            const leaveType = shiftLeaves[emp];
+            
+            let isHalfMorningOT = false;
+            let isHalfAfternoonOT = false;
+            if (emp.includes('/')) {
+                const parts = emp.split('/');
+                if (parts[1] === '-') isHalfMorningOT = true;
+                if (parts[0] === '-') isHalfAfternoonOT = true;
+            }
+            
+            // Clean up internal spaces (e.g. "-/ 2" -> "-/2", "/- 9" -> "/-9")
+            choice = choice.replace(/\s+/g, '');
+            
+            // Bypass digit check for FDO and W/S roles
+            if (choice.includes('FDO') || choice.includes('W/S')) {
+                return choice;
+            }
+            
+            // If the choice has no digits, it's just the empty/prompt template (like "/-", "-/", etc.)
+            if (!/\d/.test(choice)) {
+                return "";
+            }
+            
+            if (choice.startsWith('-/')) {
+                const slot = choice.replace('-/', '');
+                return `-/${slot}`;
+            }
+            
+            if (choice.startsWith('/-')) {
+                const slot = choice.replace('/-', '');
+                return `${slot}/-`;
+            }
+            
+            if (choice.endsWith('/-')) {
+                const slot = choice.replace('/-', '');
+                return `${slot}/-`;
+            }
+            
+            if (choice.endsWith('-/')) {
+                const slot = choice.replace('-/', '');
+                return `-/${slot}`;
+            }
+            
+            if (leaveType === 'half-morning' || isHalfAfternoonOT) {
+                if (!choice.includes('/')) {
+                    choice = `-/${choice}`;
+                }
+            } else if (leaveType === 'half-afternoon' || isHalfMorningOT) {
+                if (!choice.includes('/')) {
+                    choice = `${choice}/-`;
+                }
+            }
+            return choice;
+        }
+
+        // Live Parser for database shift room
+        function onLineResultsChange() {
+            if (!selectedShift) return;
+
+            const text = document.getElementById('line-paste-input').value;
+            const expected = getExpectedQueue();
+            
+            // Backup manual FDO assignments
+            const fdoBackups = {};
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                const upperChoice = choice.trim().toUpperCase();
+                if (upperChoice.includes('FDO')) {
+                    fdoBackups[emp] = choice;
+                }
+            });
+
+            parsedChoices = {};
+
+            // 1. Build a mapping of baseInitials to full expected name from roster/expected queue
+            const baseToExpected = {};
+            roster.forEach(empObj => {
+                const emp = empObj.initials;
+                const base = getCleanInitials(emp);
+                baseToExpected[base] = emp;
+            });
+            expected.forEach(emp => {
+                const base = getCleanInitials(emp);
+                baseToExpected[base] = emp;
+            });
+
+            const lines = text.split('\n');
+            lines.forEach((line) => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+
+                const parts = trimmed.split(/\s+/);
+                if (parts.length >= 2) {
+                    const empRaw = parts[0].toUpperCase();
+                    const rawChoice = parts.slice(1).join(' ').trim();
+                    // For FDO assignments, preserve even if employee is not in the roster/queue
+                    const isFDOChoice = rawChoice.toUpperCase().includes('FDO');
+                    // Also try clean initials as fallback (handles "BB/-" → "BB" lookup)
+                    const empRawClean = getCleanInitials(empRaw);
+                    const emp = baseToExpected[empRaw] || baseToExpected[empRawClean] || (isFDOChoice ? empRaw : null);
+                    if (emp) {
+                        parsedChoices[emp] = formatChoiceForEmployee(emp, rawChoice, selectedShift.shift_type === 'M8/A14');
+                    }
+                }
+            });
+
+            // Auto-insert W/S supervisor selections from selectedShift.supervisor taking leaves and OT replacements into account
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            const svParts = (selectedShift.supervisor || '').split(/[\/-]/).map(s => s.trim().toUpperCase());
+            if (isMorning) {
+                // 1. W/S M8
+                if (svParts.length >= 1 && svParts[0]) {
+                    const wsM8 = svParts[0];
+                    const wsM8Leave = shiftLeaves[wsM8] || 'active';
+                    
+                    const wsM8ReplFull = document.getElementById('attendance-ws-m8-ot-input')?.value.trim().toUpperCase() || '';
+                    const wsM8ReplMorning = document.getElementById('attendance-ws-m8-morning-ot-input')?.value.trim().toUpperCase() || '';
+                    const wsM8ReplAfternoon = document.getElementById('attendance-ws-m8-afternoon-ot-input')?.value.trim().toUpperCase() || '';
+                    
+                    if (wsM8Leave === 'full') {
+                        if (wsM8ReplFull) {
+                            parsedChoices[wsM8ReplFull] = "W/S M8";
+                        }
+                    } else if (wsM8Leave === 'half-morning') {
+                        parsedChoices[wsM8] = "-/W/S M8";
+                        if (wsM8ReplMorning) {
+                            parsedChoices[wsM8ReplMorning] = "W/S M8/-";
+                        }
+                    } else if (wsM8Leave === 'half-afternoon') {
+                        parsedChoices[wsM8] = "W/S M8/-";
+                        if (wsM8ReplAfternoon) {
+                            parsedChoices[wsM8ReplAfternoon] = "-/W/S M8";
+                        }
+                    } else {
+                        parsedChoices[wsM8] = "W/S M8";
+                    }
+                }
+                
+                // 2. W/S A14
+                if (svParts.length >= 2 && svParts[1]) {
+                    const wsA14 = svParts[1];
+                    const wsA14Leave = shiftLeaves[wsA14] || 'active';
+                    
+                    const wsA14ReplFull = document.getElementById('attendance-ws-a14-ot-input')?.value.trim().toUpperCase() || '';
+                    const wsA14ReplMorning = document.getElementById('attendance-ws-a14-morning-ot-input')?.value.trim().toUpperCase() || '';
+                    const wsA14ReplAfternoon = document.getElementById('attendance-ws-a14-afternoon-ot-input')?.value.trim().toUpperCase() || '';
+                    
+                    if (wsA14Leave === 'full') {
+                        if (wsA14ReplFull) {
+                            parsedChoices[wsA14ReplFull] = "W/S A14";
+                        }
+                    } else if (wsA14Leave === 'half-morning') {
+                        parsedChoices[wsA14] = "-/W/S A14";
+                        if (wsA14ReplMorning) {
+                            parsedChoices[wsA14ReplMorning] = "W/S A14/-";
+                        }
+                    } else if (wsA14Leave === 'half-afternoon') {
+                        parsedChoices[wsA14] = "W/S A14/-";
+                        if (wsA14ReplAfternoon) {
+                            parsedChoices[wsA14ReplAfternoon] = "-/W/S A14";
+                        }
+                    } else {
+                        parsedChoices[wsA14] = "W/S A14";
+                    }
+                }
+            } else {
+                if (svParts.length >= 1 && svParts[0]) {
+                    const wsN = svParts[0];
+                    const wsNLeave = shiftLeaves[wsN] || 'active';
+                    const wsNReplFull = document.getElementById('attendance-ws-n-ot-input')?.value.trim().toUpperCase() || '';
+                    
+                    if (wsNLeave === 'full') {
+                        if (wsNReplFull) {
+                            parsedChoices[wsNReplFull] = "W/S N";
+                        }
+                    } else {
+                        parsedChoices[wsN] = "W/S N";
+                    }
+                }
+            }
+
+            // Re-insert FDO backups
+            Object.assign(parsedChoices, fdoBackups);
+
+            // Sync OT list and controls
+            syncShiftOTsFromSelections();
+            syncOTInputsFromShiftOTs();
+            updateLineCopyText();
+
+            // Update UI Checklist and Grid Map
+            updateShiftRoomParserStatus();
+            renderShiftRoomPreviewGrid();
+            validateShiftRoomSave();
+        }
+
+        function updateShiftRoomParserStatus() {
+            const grid = document.getElementById('parser-status-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            
+            const expected = getExpectedQueue();
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            
+            let successCount = 0;
+            let errorCount = 0;
+            let missingCount = 0;
+
+            expected.forEach((emp) => {
+                const card = document.createElement('div');
+                const choice = parsedChoices[emp];
+                const cleanName = getCleanInitials(emp);
+
+                if (choice) {
+                    const isValid = validateChoiceFormat(choice, isMorning);
+                    if (isValid) {
+                        const isOT = shiftOTs.includes(emp);
+                        const displayChoice = isOT ? `${choice} (โอที)` : choice;
+                        card.className = 'emp-status-card mapped';
+                        card.innerHTML = `
+                            <span class="emp-name">${cleanName}</span>
+                            <span style="font-weight: 700;">👉 ${displayChoice}</span>
+                        `;
+                        successCount++;
+                    } else {
+                        card.className = 'emp-status-card error';
+                        card.innerHTML = `
+                            <span class="emp-name">${cleanName}</span>
+                            <span style="font-size: 0.72rem; color: var(--color-error);">รูปแบบผิด: ${choice}</span>
+                        `;
+                        errorCount++;
+                    }
+                } else {
+                    card.className = 'emp-status-card missing';
+                    card.innerHTML = `
+                        <span class="emp-name">${cleanName}</span>
+                        <span style="font-size: 0.72rem; color: var(--color-warning);">ยังไม่ได้เลือก</span>
+                    `;
+                    missingCount++;
+                }
+                grid.appendChild(card);
+            });
+
+            const pill = document.getElementById('parse-summary-pill');
+            const pillText = document.getElementById('parse-summary-text');
+            if (pill && pillText) {
+                pill.style.display = 'flex';
+                if (expected.length === 0) {
+                    pill.className = 'status-pill warning';
+                    pillText.innerText = 'ไม่พบคิวพนักงาน';
+                } else if (successCount === expected.length) {
+                    pill.className = 'status-pill success';
+                    pillText.innerText = 'จัดเวรสำเร็จ ครบทุกคนเรียบร้อย!';
+                } else {
+                    pill.className = 'status-pill warning';
+                    pillText.innerText = `จัดเวรสำเร็จ ${successCount} / ${expected.length} คน (ค้าง ${missingCount} คน)`;
+                }
+            }
+        }
+
+        function validateChoiceFormat(choice, isMorning) {
+            const ch = choice.trim().toUpperCase();
+            // Explicitly allow W/S half-day patterns before generic split
+            if (ch === 'W/S M8/-' || ch === '-/W/S M8' || ch === 'W/S A14/-' || ch === '-/W/S A14') return true;
+            if (ch.includes('/')) {
+                const parts = ch.split('/');
+                if (parts.length !== 2) return false;
+                const mPart = parts[0].trim();
+                const aPart = parts[1].trim();
+                if (mPart === '-' && aPart === '-') return false;
+                
+                const validateSingle = (part) => {
+                    if (part === '-') return true;
+                    return validateChoiceFormat(part, isMorning);
+                };
+                
+                return validateSingle(mPart) && validateSingle(aPart);
+            }
+            
+            if (isMorning) {
+                if (ch === 'W/S A14' || ch === 'W/S M8' || ch === 'FDO1' || ch === 'FDO2') return true;
+                let numStr = ch.startsWith('M') ? ch.slice(1) : ch;
+                const num = parseInt(numStr);
+                return (!isNaN(num) && num >= 1 && num <= 11);
+            } else {
+                if (ch === 'W/S N' || ch === 'FDO A' || ch === 'FDO1' || ch === 'FDO2') return true;
+                if (ch.startsWith('A')) {
+                    const num = parseInt(ch.slice(1));
+                    return (!isNaN(num) && num >= 1 && num <= 5);
+                }
+                if (ch.startsWith('N')) {
+                    const num = parseInt(ch.slice(1));
+                    return (!isNaN(num) && num >= 1 && num <= 7);
+                }
+                return false;
+            }
+        }
+
+        function renderShiftRoomPreviewGrid() {
+            const wrapper = document.getElementById('preview-grid-wrapper');
+            if (!wrapper) return;
+            wrapper.innerHTML = '';
+
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            const logs = isMorning ? morningLogs : anLogs;
+            
+            const morningChoices = {};
+            const afternoonChoices = {};
+
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                let chNorm = choice.trim().toUpperCase();
+                if (isMorning) {
+                    if (chNorm.startsWith('M') && !isNaN(chNorm.slice(1)) && !chNorm.includes('/')) {
+                        chNorm = chNorm.slice(1);
+                    }
+                }
+                
+                // Special case: W/S half-day patterns — "W/S M8/-" or "-/W/S M8" etc.
+                // Splitting these by "/" yields 3 tokens (e.g. ["-","W","S M8"]),
+                // so they must be matched before the generic split branch.
+                if (chNorm.endsWith('/-') && chNorm.startsWith('W/S')) {
+                    // "W/S M8/-" → morning only for slot "W/S M8"
+                    const slotId = chNorm.slice(0, -2);
+                    morningChoices[slotId] = emp;
+                } else if (chNorm.startsWith('-/W/S')) {
+                    // "-/W/S M8" → afternoon only for slot "W/S M8"
+                    const slotId = chNorm.slice(2); // remove leading "-/"
+                    afternoonChoices[slotId] = emp;
+                } else if (chNorm.includes('/') && !chNorm.startsWith('W/S')) {
+                    const parts = chNorm.split('/');
+                    let mPart = parts[0].trim();
+                    let aPart = parts[1].trim();
+                    if (isMorning) {
+                        if (mPart.startsWith('M') && !isNaN(mPart.slice(1))) mPart = mPart.slice(1);
+                        if (aPart.startsWith('M') && !isNaN(aPart.slice(1))) aPart = aPart.slice(1);
+                    }
+                    if (mPart && mPart !== '-') {
+                        morningChoices[mPart] = emp;
+                    }
+                    if (aPart && aPart !== '-') {
+                        afternoonChoices[aPart] = emp;
+                    }
+                } else {
+                    morningChoices[chNorm] = emp;
+                    afternoonChoices[chNorm] = emp;
+                }
+            });
+
+            logs.forEach((log) => {
+                const empM = morningChoices[log.id] || '';
+                const empA = afternoonChoices[log.id] || '';
+                
+                let empDisplay = '';
+                if (empM && empA) {
+                    const cleanM = getCleanInitials(empM);
+                    const cleanA = getCleanInitials(empA);
+                    empDisplay = (cleanM === cleanA) ? cleanM : `${cleanM}/${cleanA}`;
+                } else {
+                    const cleanM = getCleanInitials(empM);
+                    const cleanA = getCleanInitials(empA);
+                    empDisplay = cleanM || cleanA || '-';
+                }
+                
+                const filledClass = empDisplay !== '-' ? 'filled' : '';
+                const row = document.createElement('div');
+                row.className = 'preview-row';
+                
+                row.innerHTML = `
+                    <div class="preview-slot-id">${log.id}</div>
+                    <div>
+                        <input type="text" class="preview-slot-name ${filledClass}" 
+                               value="${empDisplay === '-' ? '' : empDisplay}" 
+                               placeholder="-"
+                               style="width: 80px; text-align: center; font-family: monospace; outline: none; padding: 0.2rem 0.4rem;"
+                               onchange="onPreviewGridNameChange('${log.id}', this.value)">
+                    </div>
+                    <div class="preview-slot-desc">${log.desc}</div>
+                `;
+                wrapper.appendChild(row);
+            });
+        }
+
+        // Helper functions for Preview Grid direct editing
+        function removeSlotFromChoice(choiceStr, slotId) {
+            if (choiceStr === slotId) return null;
+            if (choiceStr.includes('/')) {
+                const parts = choiceStr.split('/');
+                let m = parts[0].trim();
+                let a = parts[1].trim();
+                if (m === slotId) m = '-';
+                if (a === slotId) a = '-';
+                if (m === '-' && a === '-') return null;
+                return `${m}/${a}`;
+            }
+            return choiceStr;
+        }
+
+        function clearEmployeeSelections(empName) {
+            delete parsedChoices[empName];
+        }
+
+        function onPreviewGridNameChange(slotId, newValue) {
+            newValue = newValue.trim().toUpperCase();
+            
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            
+            // If slotId is an FDO slot, remove this employee from shiftOTs
+            if (slotId.includes('FDO') && newValue && newValue !== '-') {
+                const cleanNewVal = getCleanInitials(newValue);
+                shiftOTs = shiftOTs.filter(ot => {
+                    const cleanOt = getCleanInitials(ot);
+                    return cleanOt !== cleanNewVal;
+                });
+                syncOTInputsFromShiftOTs();
+                updateLineCopyText();
+            }
+            
+            // 1. Remove slotId from any existing employees in parsedChoices
+            Object.entries(parsedChoices).forEach(([emp, choice]) => {
+                let ch = choice.trim().toUpperCase();
+                if (isMorning) {
+                    if (ch.startsWith('M') && !isNaN(ch.slice(1)) && !ch.includes('/')) {
+                        ch = ch.slice(1);
+                    }
+                }
+                
+                const newCh = removeSlotFromChoice(ch, slotId);
+                if (newCh === null) {
+                    delete parsedChoices[emp];
+                } else {
+                    parsedChoices[emp] = newCh;
+                }
+            });
+
+            // 2. Parse new employee assignments
+            if (newValue && newValue !== '-') {
+                let mEmp = "";
+                let aEmp = "";
+                
+                if (newValue.includes('/')) {
+                    const parts = newValue.split('/');
+                    mEmp = parts[0].trim().toUpperCase();
+                    aEmp = parts[1].trim().toUpperCase();
+                } else {
+                    mEmp = newValue;
+                    aEmp = newValue;
+                }
+                
+                // Match to roster casing/initials if available
+                const baseToExpected = {};
+                roster.forEach(empObj => {
+                    const emp = empObj.initials;
+                    const base = getCleanInitials(emp).toUpperCase();
+                    baseToExpected[base] = emp;
+                });
+                if (mEmp && mEmp !== '-') {
+                    const matched = baseToExpected[mEmp];
+                    if (matched) mEmp = matched;
+                }
+                if (aEmp && aEmp !== '-' && aEmp !== mEmp) {
+                    const matched = baseToExpected[aEmp];
+                    if (matched) aEmp = matched;
+                }
+                
+                if (mEmp && mEmp !== '-') {
+                    clearEmployeeSelections(mEmp);
+                }
+                if (aEmp && aEmp !== '-' && aEmp !== mEmp) {
+                    clearEmployeeSelections(aEmp);
+                }
+                
+                if (mEmp === aEmp) {
+                    parsedChoices[mEmp] = slotId;
+                } else {
+                    if (mEmp && mEmp !== '-') {
+                        parsedChoices[mEmp] = `${slotId}/-`;
+                    }
+                    if (aEmp && aEmp !== '-') {
+                        parsedChoices[aEmp] = `-/${slotId}`;
+                    }
+                }
+            }
+            
+            // Sync OT list and controls
+            syncShiftOTsFromSelections();
+            syncOTInputsFromShiftOTs();
+            updateLineCopyText();
+            
+            // 3. Re-run checklist status, preview grid, and save validation
+            updateShiftRoomParserStatus();
+            renderShiftRoomPreviewGrid();
+            validateShiftRoomSave();
+            
+            // 4. Update the Line paste textarea to stay in sync with the new grid selections!
+            // Use clean initials as display name so OT-formatted keys ("BB/-") appear as "BB"
+            const expected = getExpectedQueue();
+            let lines = [];
+            const added = new Set();
+            expected.forEach(emp => {
+                if (parsedChoices[emp]) {
+                    lines.push(`${getCleanInitials(emp)} ${parsedChoices[emp]}`);
+                    added.add(emp);
+                }
+            });
+            Object.keys(parsedChoices).forEach(emp => {
+                if (!added.has(emp)) {
+                    lines.push(`${getCleanInitials(emp)} ${parsedChoices[emp]}`);
+                }
+            });
+            document.getElementById('line-paste-input').value = lines.join('\n');
+        }
+
+        function validateShiftRoomSave() {
+            const saveBtn = document.getElementById('save-selections-btn');
+            if (!saveBtn) return;
+            saveBtn.disabled = false; // Always enabled to allow saving leaves and OTs configuration
+        }
+
+        function saveSelectionsToDB() {
+            if (!selectedShift) return;
+            
+            showLoading(true);
+            const expected = getExpectedQueue();
+            const isCompleted = (expected.length > 0 && expected.every(emp => parsedChoices[emp] && parsedChoices[emp].trim() !== '')) ? 1 : 0;
+
+            const payload = {
+                selections: parsedChoices,
+                leaves: shiftLeaves,
+                ots: shiftOTs,
+                is_completed: isCompleted
+            };
+
+            fetch(`/api/shifts/${selectedShift.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                showToast("บันทึกตารางการจัดเวรลงฐานข้อมูลเรียบร้อยแล้ว", "success");
+                loadAllData();
+            })
+            .catch(err => {
+                showToast(err.message, "error");
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+        }
+
+        // Modals Management
+        function getTeamForDate(dateStr, shiftType) {
+            if (!dateStr || !shiftType) return null;
+            const parts = dateStr.split('-');
+            if (parts.length < 3) return null;
+            
+            // Create local dates (safe from timezone shifting)
+            const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            const basePurple = new Date(2026, 5, 5); // June 5, 2026 is Purple M8/A14
+            
+            const diffTime = date.getTime() - basePurple.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            
+            let remainder = diffDays % 8;
+            if (remainder < 0) remainder += 8;
+            
+            if (remainder === 0 && shiftType === 'M8/A14') return 'purple';
+            if (remainder === 2 && shiftType === 'A+N') return 'purple';
+            if (remainder === 1 && shiftType === 'M8/A14') return 'green';
+            if (remainder === 3 && shiftType === 'A+N') return 'green';
+            
+            return null;
+        }
+
+        function getSuggestedQueue(targetDate = null, targetShiftType = null) {
+            const activeEmps = roster.filter(e => e.is_active === 1).map(e => e.initials);
+            if (activeEmps.length === 0) return [];
+            
+            // Determine team of target shift
+            const targetTeam = getTeamForDate(targetDate, targetShiftType);
+            
+            // Find the most recent shift of the SAME team
+            let lastShift = null;
+            if (targetTeam && shifts && shifts.length > 0) {
+                lastShift = shifts.find(s => getTeamForDate(s.date, s.shift_type) === targetTeam);
+            }
+            
+            // Fallback to the most recent shift overall if no same-team shift exists in DB
+            if (!lastShift && shifts && shifts.length > 0) {
+                lastShift = shifts[0];
+            }
+            
+            if (lastShift && lastShift.queue && lastShift.queue.length > 0) {
+                const baseQueue = [...lastShift.queue];
+                
+                // Shift left by 1 (the first person moves to the end of the rotation)
+                if (baseQueue.length > 0) {
+                    const first = baseQueue.shift();
+                    baseQueue.push(first);
+                }
+                
+                // Keep only currently active employees (in case some were set to Inactive)
+                let suggested = baseQueue.filter(emp => activeEmps.includes(emp));
+                
+                // If the queue size is less than 13 (due to inactive filtering), fill from active roster
+                activeEmps.forEach(emp => {
+                    if (suggested.length < 13 && !suggested.includes(emp)) {
+                        suggested.push(emp);
+                    }
+                });
+                
+                return suggested.slice(0, 13);
+            }
+            // Fallback: take first 13 of active employees
+            return activeEmps.slice(0, 13);
+        }
+
+        function updateCreateShiftTeamHelper() {
+            const dateVal = document.getElementById('shift-date-input').value;
+            const typeVal = document.getElementById('shift-type-input').value;
+            const helperDiv = document.getElementById('create-shift-team-helper');
+            
+            if (!dateVal || !typeVal) {
+                helperDiv.style.display = 'none';
+                return;
+            }
+            
+            const team = getTeamForDate(dateVal, typeVal);
+            helperDiv.style.display = 'flex';
+            
+            if (team === 'purple') {
+                helperDiv.style.backgroundColor = 'rgba(168, 85, 247, 0.15)';
+                helperDiv.style.color = '#7E22CE';
+                helperDiv.style.border = '1px solid rgba(168, 85, 247, 0.3)';
+                helperDiv.innerHTML = '🟣 ทีมที่ปฏิบัติหน้าที่ตามเงื่อนไข: <strong>ทีมสีม่วง</strong>';
+            } else if (team === 'green') {
+                helperDiv.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+                helperDiv.style.color = '#065F46';
+                helperDiv.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+                helperDiv.innerHTML = '🟢 ทีมที่ปฏิบัติหน้าที่ตามเงื่อนไข: <strong>ทีมสีเขียว</strong>';
+            } else {
+                helperDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                helperDiv.style.color = '#EF4444';
+                helperDiv.style.border = '1px solid rgba(239, 68, 68, 0.2)';
+                helperDiv.innerHTML = '❌ ไม่อยู่ในเงื่อนไขรอบเวรทำงานตามปฏิทิน (คาดว่าเป็นวันพัก/วันหยุด)';
+            }
+        }
+
+        function updateCreateShiftReferencePanel() {
+            const dateVal = document.getElementById('shift-date-input').value;
+            const typeVal = document.getElementById('shift-type-input').value;
+            const refDetails = document.getElementById('prev-shift-ref-details');
+            const refQueue = document.getElementById('prev-shift-ref-queue');
+            
+            if (!dateVal || !typeVal) {
+                refDetails.innerHTML = 'กรุณาเลือกวันที่และกะเวลา';
+                refQueue.innerText = '(ไม่มี)';
+                return;
+            }
+            
+            const targetTeam = getTeamForDate(dateVal, typeVal);
+            
+            // Find the most recent shift of the SAME team
+            let refShift = null;
+            if (targetTeam && shifts && shifts.length > 0) {
+                refShift = shifts.find(s => getTeamForDate(s.date, s.shift_type) === targetTeam);
+            }
+            
+            // Fallback to the overall latest shift if no same-team shift exists in DB
+            if (!refShift && shifts && shifts.length > 0) {
+                refShift = shifts[0];
+            }
+            
+            if (refShift) {
+                const refTeam = getTeamForDate(refShift.date, refShift.shift_type);
+                const refTeamLabel = refTeam === 'purple' ? '🟣 ทีมสีม่วง' : (refTeam === 'green' ? '🟢 ทีมสีเขียว' : 'ทั่วไป');
+                
+                refDetails.innerHTML = `
+                    <div>วันที่: <strong>${refShift.date_display}</strong></div>
+                    <div>กะเวลา: <strong>กะ${refShift.shift_type === 'M8/A14' ? 'เช้า (M8/A14)' : 'บ่ายดึก (A+N)'}</strong></div>
+                    <div>ทีม: <strong>${refTeamLabel}</strong></div>
+                    <div>Supervisor: <strong>${refShift.supervisor || 'ไม่ได้ระบุ'}</strong></div>
+                `;
+                
+                // Active queue of previous shift
+                refQueue.innerText = refShift.queue.join('\n') || '(ไม่มี)';
+            } else {
+                refDetails.innerHTML = 'ไม่พบประวัติเวรก่อนหน้าในระบบ';
+                refQueue.innerText = '(ไม่มี)';
+            }
+        }
+
+        function handleCreateShiftInputChanges() {
+            const dateVal = document.getElementById('shift-date-input').value;
+            const typeVal = document.getElementById('shift-type-input').value;
+            
+            updateCreateShiftTeamHelper();
+            updateCreateShiftReferencePanel();
+            
+            const suggested = getSuggestedQueue(dateVal, typeVal);
+            document.getElementById('shift-queue-input').value = suggested.join('\n');
+        }
+
+        function openCreateShiftModal() {
+            let suggestedDate = new Date().toISOString().split('T')[0];
+            let suggestedShiftType = 'M8/A14';
+            
+            if (shifts && shifts.length > 0) {
+                const lastShift = shifts[0];
+                const parts = lastShift.date.split('-');
+                const lastDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                
+                const formatDateLocal = (date) => {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+                
+                if (lastShift.shift_type === 'M8/A14') {
+                    // Next shift A+N is 2 days later
+                    lastDate.setDate(lastDate.getDate() + 2);
+                    suggestedDate = formatDateLocal(lastDate);
+                    suggestedShiftType = 'A+N';
+                } else if (lastShift.shift_type === 'A+N') {
+                    // Next shift M8/A14 is 6 days later
+                    lastDate.setDate(lastDate.getDate() + 6);
+                    suggestedDate = formatDateLocal(lastDate);
+                    suggestedShiftType = 'M8/A14';
+                }
+            }
+            
+            document.getElementById('shift-date-input').value = suggestedDate;
+            document.getElementById('shift-type-input').value = suggestedShiftType;
+            document.getElementById('shift-supervisor-input').value = '';
+            
+            // Update team helper dynamically
+            updateCreateShiftTeamHelper();
+            
+            // Populate Reference Panel dynamically based on the selected team
+            updateCreateShiftReferencePanel();
+            
+            // Get system suggestion and populate textarea (only 13 people) using the specific team's queue
+            const suggested = getSuggestedQueue(suggestedDate, suggestedShiftType);
+            document.getElementById('shift-queue-input').value = suggested.join('\n');
+            
+            document.getElementById('create-shift-modal').classList.add('active');
+        }
+
+        function openEmployeeModal(id = null, initials = '', fullname = '') {
+            const title = document.getElementById('emp-modal-title');
+            document.getElementById('emp-id-input').value = id || '';
+            document.getElementById('emp-initials-input').value = initials;
+            document.getElementById('emp-fullname-input').value = fullname;
+            
+            // Disable editing initials if modifying existing to prevent duplicates
+            document.getElementById('emp-initials-input').disabled = id !== null;
+
+            title.innerText = id ? 'แก้ไขข้อมูลพนักงาน' : 'เพิ่มรายชื่อพนักงานใหม่';
+            document.getElementById('employee-modal').classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function closeModalOnOverlay(e, modalId) {
+            if (e.target.id === modalId) closeModal(modalId);
+        }
+
+        // Submitting actions
+        function submitCreateShift() {
+            const date = document.getElementById('shift-date-input').value;
+            const shift_type = document.getElementById('shift-type-input').value;
+            const supervisor = document.getElementById('shift-supervisor-input').value;
+            const queueText = document.getElementById('shift-queue-input').value;
+
+            if (!date || !shift_type) {
+                showToast("โปรดระบุวันที่และกะจัดเวร", "warning");
+                return;
+            }
+
+            // Parse custom employee queue
+            const customQueue = queueText.split('\n')
+                .map(line => line.trim().toUpperCase())
+                .filter(line => line.length > 0);
+
+            if (customQueue.length === 0) {
+                showToast("ลำดับคิวพนักงานต้องมีพนักงานอย่างน้อย 1 คน", "warning");
+                return;
+            }
+
+            showLoading(true);
+            const payload = { date, shift_type, supervisor, queue: customQueue };
+
+            fetch('/api/shifts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                showToast("สร้างวันจัดเวรพนักงานสำเร็จ", "success");
+                closeModal('create-shift-modal');
+                loadAllData();
+            })
+            .catch(err => {
+                showToast(err.message, "error");
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+        }
+
+        function submitSaveEmployee() {
+            const id = document.getElementById('emp-id-input').value;
+            const initials = document.getElementById('emp-initials-input').value.trim();
+            const fullname = document.getElementById('emp-fullname-input').value.trim();
+
+            if (!initials || !fullname) {
+                showToast("โปรดระบุชื่อย่อและชื่อ-นามสกุลพนักงาน", "warning");
+                return;
+            }
+
+            showLoading(true);
+            const payload = { initials, full_name: fullname };
+            if (id) payload.id = parseInt(id);
+
+            fetch('/api/employees', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                showToast("บันทึกข้อมูลพนักงานเสร็จสิ้น", "success");
+                closeModal('employee-modal');
+                loadAllData();
+            })
+            .catch(err => {
+                showToast(err.message, "error");
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+        }
+
+        function deleteEmployee(id) {
+            if (!confirm("คุณต้องการลบรายชื่อพนักงานคนนี้ออกจากระบบใช่หรือไม่?")) return;
+            
+            showLoading(true);
+            fetch(`/api/employees/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
+                    showToast("ลบรายชื่อพนักงานสำเร็จ", "success");
+                    loadAllData();
+                })
+                .catch(err => {
+                    showToast(err.message, "error");
+                })
+                .finally(() => {
+                    showLoading(false);
+                });
+        }
+
+        function deleteShift(id) {
+            if (!confirm("คุณต้องการลบตารางการจัดเวรนี้ออกใช่หรือไม่?")) return;
+            
+            showLoading(true);
+            fetch(`/api/shifts/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
+                    showToast("ลบวันจัดเวรสำเร็จ", "success");
+                    
+                    // If the currently opened shift is deleted, hide link
+                    if (selectedShift && selectedShift.id === id) {
+                        selectedShift = null;
+                        document.getElementById('nav-shiftroom').style.display = 'none';
+                        switchTab('dashboard');
+                    }
+                    loadAllData();
+                })
+                .catch(err => {
+                    showToast(err.message, "error");
+                })
+                .finally(() => {
+                    showLoading(false);
+                });
+        }
+
+        function getCleanInitials(emp) {
+            if (!emp) return '';
+            let clean = emp;
+            if (emp.includes('/')) {
+                const parts = emp.split('/');
+                if (parts[0] === '-') {
+                    clean = parts[1];
+                } else {
+                    clean = parts[0];
+                }
+            }
+            return clean.replace(/-/g, '');
+        }
+
+        // ===== ดาวน์โหลดตาราง Log เป็นรูปภาพ =====
+        async function downloadLogAsImage() {
+            const btn = document.getElementById('btn-download-log-img');
+            const table = document.getElementById('hourly-log-table');
+            const tableWrapper = table.parentElement; // div ที่ครอบ table ไว้
+
+            if (!table || table.innerHTML.trim() === '' || table.innerHTML.includes('<!-- Generated dynamically -->')) {
+                alert('ไม่พบข้อมูลตาราง Log กรุณาเปิดตาราง Log ก่อนนะครับ');
+                return;
+            }
+
+            // เปลี่ยนปุ่มเป็น Loading
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ กำลังสร้างรูป...';
+            btn.disabled = true;
+
+            try {
+                // สร้าง element ชั่วคราวเพื่อ capture ตาราง (ไม่ติด scrollbar)
+                const captureEl = document.createElement('div');
+                captureEl.style.cssText = [
+                    'position: fixed',
+                    'top: -9999px',
+                    'left: -9999px',
+                    'background: #FFFFFF',
+                    'padding: 16px',
+                    'width: max-content',
+                    'min-width: 1200px',
+                    'font-family: "Inter", "Noto Sans Thai", sans-serif'
+                ].join(';');
+
+                // ใส่หัวข้อ
+                const titleEl = document.createElement('div');
+                titleEl.style.cssText = 'font-size: 14px; font-weight: 700; color: #000000; margin-bottom: 4px;';
+                titleEl.textContent = document.getElementById('hourly-log-title').textContent;
+                captureEl.appendChild(titleEl);
+
+                const subtitleEl = document.createElement('div');
+                subtitleEl.style.cssText = 'font-size: 12px; color: #4B5563; margin-bottom: 12px;';
+                subtitleEl.textContent = document.getElementById('hourly-log-subtitle').textContent;
+                captureEl.appendChild(subtitleEl);
+
+                // Clone ตาราง
+                const tableClone = table.cloneNode(true);
+                tableClone.style.cssText = 'border-collapse: collapse; font-size: 0.82rem; background: #FFFFFF; color: #000000; width: max-content;';
+                captureEl.appendChild(tableClone);
+
+                document.body.appendChild(captureEl);
+
+                const canvas = await html2canvas(captureEl, {
+                    backgroundColor: '#FFFFFF',
+                    scale: 2,         // ความละเอียดสูง (2x) สำหรับหน้าจอ Retina / พิมพ์ชัด
+                    useCORS: true,
+                    logging: false
+                });
+
+                document.body.removeChild(captureEl);
+
+                // สร้างชื่อไฟล์จากวันที่และกะ
+                const titleText = document.getElementById('hourly-log-title').textContent;
+                const safeTitle = titleText.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_');
+                const timestamp = new Date().toISOString().slice(0, 10);
+                const filename = `Log_${safeTitle || timestamp}.png`;
+
+                // ดาวน์โหลด
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+            } catch (err) {
+                console.error('Download error:', err);
+                alert('เกิดข้อผิดพลาดในการสร้างรูปภาพ: ' + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
