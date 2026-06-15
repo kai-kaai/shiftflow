@@ -124,6 +124,31 @@ def init_db():
 
     conn.close()
 
+def ensure_employees_exist(initials_list):
+    """Auto-insert any new employee initials from a queue list (used when creating shifts via the form)."""
+    if not initials_list:
+        return
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        for raw_ini in initials_list:
+            ini = str(raw_ini).strip().upper()
+            if not ini:
+                continue
+            cursor.execute("SELECT 1 FROM employees WHERE initials = ?", (ini,))
+            if cursor.fetchone():
+                continue
+            # Insert new employee at the end of queue order
+            cursor.execute("SELECT MAX(queue_order) FROM employees")
+            max_order = cursor.fetchone()[0] or 0
+            cursor.execute(
+                "INSERT INTO employees (initials, full_name, is_active, queue_order) VALUES (?, ?, 1, ?)",
+                (ini, f"Employee {ini}", max_order + 1)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
 # Initialize DB on import/startup
 init_db()
 
@@ -299,56 +324,9 @@ def get_employees():
         })
     return jsonify({"employees": employees})
 
-@app.route('/api/employees', methods=['POST'])
-def save_employee():
-    data = request.json
-    if not data or 'initials' not in data:
-        return jsonify({"error": "Missing initials"}), 400
-        
-    initials = data.get('initials').strip().upper()
-    full_name = data.get('full_name', f"Employee {initials}").strip()
-    is_active = data.get('is_active', 1)
-    emp_id = data.get('id')
-
-    conn = get_db()
-    cursor = conn.cursor()
-    try:
-        if emp_id:
-            # Update existing
-            cursor.execute(
-                "UPDATE employees SET initials = ?, full_name = ?, is_active = ? WHERE id = ?",
-                (initials, full_name, is_active, emp_id)
-            )
-        else:
-            # Get max queue order
-            cursor.execute("SELECT MAX(queue_order) FROM employees")
-            max_order = cursor.fetchone()[0] or 0
-            # Insert new
-            cursor.execute(
-                "INSERT INTO employees (initials, full_name, is_active, queue_order) VALUES (?, ?, ?, ?)",
-                (initials, full_name, is_active, max_order + 1)
-            )
-        conn.commit()
-        return jsonify({"success": True})
-    except sqlite3.IntegrityError:
-        return jsonify({"error": f"ชื่อย่อพนักงาน '{initials}' ซ้ำในระบบ"}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
-
-@app.route('/api/employees/<int:id>', methods=['DELETE'])
-def delete_employee(id):
-    conn = get_db()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("DELETE FROM employees WHERE id = ?", (id,))
-        conn.commit()
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
+# Note: Employee management (add/edit/delete) is no longer exposed via dedicated UI.
+# New employees are automatically added when users enter new initials in the
+# "ลำดับคิวพนักงาน" field when creating a new shift.
 
 # 2. Shifts CRUD APIs
 @app.route('/api/shifts', methods=['GET'])
@@ -409,16 +387,16 @@ def create_shift():
     
     try:
         if custom_queue:
-            queue_list = custom_queue
+            queue_list = [str(q).strip().upper() for q in custom_queue if str(q).strip()]
         else:
-            # 1. Fetch active employees sorted by roster order
-            cursor.execute("SELECT initials FROM employees WHERE is_active = 1 ORDER BY queue_order ASC")
-            active_emps = [row["initials"] for row in cursor.fetchall()]
+            # Fetch all employees sorted by roster order (no more active/inactive distinction)
+            cursor.execute("SELECT initials FROM employees ORDER BY queue_order ASC")
+            all_emps = [row["initials"] for row in cursor.fetchall()]
             
-            if not active_emps:
-                return jsonify({"error": "ไม่มีรายชื่อพนักงานที่เปิดใช้งาน (Active) ในระบบ โปรดเพิ่มหรือเปิดใช้งานรายชื่อก่อน"}), 400
+            if not all_emps:
+                return jsonify({"error": "ยังไม่มีรายชื่อพนักงานในระบบ โปรดเพิ่มผ่านฟอร์มสร้างวันจัดเวร"}), 400
 
-            # 2. Find the last shift queue to compute rotating order
+            # Find the last shift queue to compute rotating order
             cursor.execute("SELECT queue FROM shifts ORDER BY date DESC, id DESC LIMIT 1")
             last_shift_row = cursor.fetchone()
             
@@ -430,16 +408,19 @@ def create_shift():
                     first = last_queue.pop(0)
                     last_queue.append(first)
                 
-                # Filter to keep only currently active employees
-                queue_list = [emp for emp in last_queue if emp in active_emps]
+                # Keep only employees that still exist
+                queue_list = [emp for emp in last_queue if emp in all_emps]
                 
-                # Append active employees not already in the queue (e.g. newly activated)
-                for emp in active_emps:
+                # Append any new employees not in the rotated queue
+                for emp in all_emps:
                     if emp not in queue_list:
                         queue_list.append(emp)
             else:
-                # Fallback to default active roster order
-                queue_list = active_emps
+                # Fallback to default roster order
+                queue_list = all_emps
+
+        # Auto-add any brand new employee names that the user typed in the queue textarea
+        ensure_employees_exist(queue_list)
 
         # Fetch template custom_log if exists
         cursor.execute("SELECT custom_log FROM template_logs WHERE shift_type = ?", (shift_type,))

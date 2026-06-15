@@ -307,101 +307,6 @@
             margin-bottom: 1.5rem;
         }
 
-        /* Roster Table UI */
-        .roster-table-wrapper {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 1rem;
-            overflow: hidden;
-        }
-
-        .roster-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-
-        .roster-table th {
-            background: rgba(255, 255, 255, 0.02);
-            padding: 1rem 1.5rem;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            border-bottom: 1px solid var(--border-color);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .roster-table td {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.95rem;
-        }
-
-        .roster-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .roster-table tr:hover {
-            background: rgba(255, 255, 255, 0.01);
-        }
-
-        .emp-badge {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--border-color);
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.375rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        /* Toggle Switch */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 2.75rem;
-            height: 1.5rem;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.1);
-            border: 1px solid var(--border-color);
-            transition: .3s;
-            border-radius: 1rem;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 1.1rem;
-            width: 1.1rem;
-            left: 2px;
-            bottom: 1px;
-            background-color: #FFF;
-            transition: .3s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background-color: var(--color-success);
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(1.15rem);
-        }
-
         /* Shift Grid / Dashboard */
         .shifts-grid {
             display: grid;
@@ -926,12 +831,7 @@
                     ห้องจัดเวรปัจจุบัน
                 </a>
             </li>
-            <li class="nav-item">
-                <a id="nav-roster" class="nav-link" onclick="switchTab('roster')">
-                    <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-                    จัดการรายชื่อพนักงาน
-                </a>
-            </li>
+
         </ul>
 
         <div class="sidebar-footer">
@@ -961,7 +861,7 @@
                     </div>
                     <div>
                         <div class="stat-number" id="stat-active-emp">0</div>
-                        <div class="stat-label">พนักงานเปิดใช้งานในคิว</div>
+                        <div class="stat-label">พนักงานทั้งหมดในระบบ</div>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -1002,32 +902,6 @@
             </div>
         </div>
 
-        <!-- Tab 3: Roster Management -->
-        <div id="tab-roster" class="tab-content">
-            <div class="action-bar">
-                <div class="section-title" style="margin-bottom: 0;">รายชื่อพนักงานทั้งหมด (เรียงตามลำดับคิวหลัก)</div>
-                <button class="btn btn-primary" onclick="openEmployeeModal()">
-                    ➕ เพิ่มพนักงานใหม่
-                </button>
-            </div>
-
-            <div class="roster-table-wrapper">
-                <table class="roster-table">
-                    <thead>
-                        <tr>
-                            <th>ลำดับคิว</th>
-                            <th>ชื่อย่อ (2 ตัว)</th>
-                            <th>ชื่อ-นามสกุล</th>
-                            <th>สถานะการเปิดใช้งาน</th>
-                            <th style="text-align: right;">จัดการข้อมูล</th>
-                        </tr>
-                    </thead>
-                    <tbody id="roster-table-body">
-                        <!-- Loaded dynamically -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
     </div>
 
     <!-- Modals -->
@@ -1065,7 +939,7 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label">ลำดับคิวพนักงาน (ระบบแนะนำคิวให้อัตโนมัติ - แก้ไขจัดเรียงชื่อใหม่ได้ บรรทัดละคน)</label>
+                        <label class="form-label">ลำดับคิวพนักงาน (ระบบแนะนำคิวให้อัตโนมัติ - พิมพ์ชื่อย่อใหม่เพิ่มได้ ระบบจะบันทึกลงฐานข้อมูลอัตโนมัติ บรรทัดละคน)</label>
                         <textarea id="shift-queue-input" class="form-input" style="min-height: 250px; font-family: monospace; font-size: 0.95rem; line-height: 1.4;" placeholder="พิมพ์รายชื่อพนักงาน บรรทัดละคน..."></textarea>
                     </div>
                 </div>
@@ -1091,33 +965,6 @@
             <div class="form-actions">
                 <button class="btn btn-secondary" onclick="closeModal('create-shift-modal')">ยกเลิก</button>
                 <button class="btn btn-primary" onclick="submitCreateShift()">สร้างตารางเวร</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add/Edit Employee Modal -->
-    <div id="employee-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'employee-modal')">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title" id="emp-modal-title">เพิ่มรายชื่อพนักงาน</div>
-                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="closeModal('employee-modal')">✖</button>
-            </div>
-            
-            <input type="hidden" id="emp-id-input">
-
-            <div class="form-group">
-                <label class="form-label">ชื่อย่อพนักงาน (ตัวอักษรพิมพ์ใหญ่ 2 ตัว)</label>
-                <input type="text" id="emp-initials-input" class="form-input" placeholder="ตัวอย่าง: CQ" maxlength="2">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">ชื่อ-นามสกุลพนักงาน</label>
-                <input type="text" id="emp-fullname-input" class="form-input" placeholder="ตัวอย่าง: Somchai Jaidee">
-            </div>
-
-            <div class="form-actions">
-                <button class="btn btn-secondary" onclick="closeModal('employee-modal')">ยกเลิก</button>
-                <button class="btn btn-primary" onclick="submitSaveEmployee()">บันทึกข้อมูล</button>
             </div>
         </div>
     </div>
@@ -1265,7 +1112,6 @@
                 shifts = shiftsData.shifts || [];
                 
                 updateStats();
-                renderRosterTable();
                 renderShiftsGrid();
                 
                 // If a shift was opened, reload its details
@@ -1284,10 +1130,10 @@
         }
 
         function updateStats() {
-            const activeEmp = roster.filter(e => e.is_active === 1).length;
+            const empCount = roster.length;
             const completed = shifts.filter(s => s.is_completed === 1).length;
             
-            document.getElementById('stat-active-emp').innerText = activeEmp;
+            document.getElementById('stat-active-emp').innerText = empCount;
             document.getElementById('stat-completed-shifts').innerText = completed;
         }
 
@@ -1308,9 +1154,6 @@
             if (tabName === 'dashboard') {
                 title.innerText = 'ตารางเวรทั้งหมด';
                 subtitle.innerText = 'ดูประวัติเวรและสร้างคิวจัดเวรพนักงาน';
-            } else if (tabName === 'roster') {
-                title.innerText = 'จัดการรายชื่อพนักงาน';
-                subtitle.innerText = 'เพิ่ม ลบ แก้ไขรายชื่อ และระบุสถานะ Active/Inactive ของพนักงาน';
             } else if (tabName === 'shiftroom') {
                 title.innerText = `ห้องจัดเวรประจำวันที่ ${selectedShift ? selectedShift.date_display : ''}`;
                 if (selectedShift) {
@@ -1326,66 +1169,6 @@
                     subtitle.innerText = 'จัดตำแหน่งของพนักงานในกะ';
                 }
             }
-        }
-
-        // Roster Render & Handlers
-        function renderRosterTable() {
-            const body = document.getElementById('roster-table-body');
-            body.innerHTML = '';
-
-            if (roster.length === 0) {
-                body.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 3rem 0;">ไม่มีรายชื่อพนักงานในฐานข้อมูล</td></tr>`;
-                return;
-            }
-
-            roster.forEach((emp) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${emp.queue_order}</td>
-                    <td><span class="emp-badge">${emp.initials}</span></td>
-                    <td>${emp.full_name}</td>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" ${emp.is_active === 1 ? 'checked' : ''} onchange="toggleEmployeeActive(${emp.id}, this.checked)">
-                            <span class="slider"></span>
-                        </label>
-                    </td>
-                    <td style="text-align: right; display: flex; justify-content: flex-end; gap: 0.5rem;">
-                        <button class="btn btn-secondary" style="padding: 0.4rem 0.75rem;" onclick="openEmployeeModal(${emp.id}, '${emp.initials}', '${emp.full_name}')">แก้ไข</button>
-                        <button class="btn btn-danger" style="padding: 0.4rem 0.75rem;" onclick="deleteEmployee(${emp.id})">ลบ</button>
-                    </td>
-                `;
-                body.appendChild(tr);
-            });
-        }
-
-        function toggleEmployeeActive(id, isChecked) {
-            const emp = roster.find(e => e.id === id);
-            if (!emp) return;
-
-            showLoading(true);
-            const payload = {
-                id: emp.id,
-                initials: emp.initials,
-                full_name: emp.full_name,
-                is_active: isChecked ? 1 : 0
-            };
-
-            fetch('/api/employees', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-                showToast(`อัปเดตสถานะ ${emp.initials} เป็น ${isChecked ? 'Active' : 'Inactive'} เรียบร้อย`, "success");
-                loadAllData();
-            })
-            .catch(err => {
-                showToast(err.message, "error");
-                loadAllData();
-            });
         }
 
         // Shifts List Render
@@ -2290,6 +2073,77 @@
 
             // Populate OT inputs if existing selections contain OT employees
             syncOTInputsFromShiftOTs();
+
+            // === FIX: Repopulate empInlineOTMap from saved shiftOTs + current shiftLeaves ===
+            // This makes the "OT แทน (เต็มวัน)" etc. inputs show the correct replacement name
+            // after full page reload (when empInlineOTMap starts empty).
+            const isMorningForOT = selectedShift.shift_type === 'M8/A14';
+            if (isMorningForOT) {
+                const fullVal = document.getElementById('attendance-ot-input')?.value || '';
+                const morningVal = document.getElementById('attendance-ot-morning-input')?.value || '';
+                const afternoonVal = document.getElementById('attendance-ot-afternoon-input')?.value || '';
+
+                const fullOTs = fullVal.trim() ? fullVal.trim().split(/\s+/) : [];
+                const mornOTs = morningVal.trim() ? morningVal.trim().split(/\s+/) : [];
+                const aftOTs  = afternoonVal.trim() ? afternoonVal.trim().split(/\s+/) : [];
+
+                // Assign full-day leave OTs to people marked on full leave (in queue order)
+                const fullLeavePeople = selectedShift.queue.filter(e => shiftLeaves[e] === 'full');
+                fullLeavePeople.forEach((emp, i) => {
+                    if (fullOTs[i]) {
+                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+                        empInlineOTMap[emp]['full'] = fullOTs[i];
+                    }
+                });
+
+                // Assign half-morning leave OTs
+                const halfMLeavePeople = selectedShift.queue.filter(e => shiftLeaves[e] === 'half-morning');
+                halfMLeavePeople.forEach((emp, i) => {
+                    if (mornOTs[i]) {
+                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+                        empInlineOTMap[emp]['half-morning'] = mornOTs[i];
+                    }
+                });
+
+                // Assign half-afternoon leave OTs
+                const halfALeavePeople = selectedShift.queue.filter(e => shiftLeaves[e] === 'half-afternoon');
+                halfALeavePeople.forEach((emp, i) => {
+                    if (aftOTs[i]) {
+                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+                        empInlineOTMap[emp]['half-afternoon'] = aftOTs[i];
+                    }
+                });
+            } else {
+                // A+N leave OTs
+                const otAVal = document.getElementById('attendance-ot-a-input')?.value || '';
+                const otNVal = document.getElementById('attendance-ot-n-input')?.value || '';
+
+                const aOTs = otAVal.trim() ? otAVal.trim().split(/\s+/) : [];
+                const nOTs = otNVal.trim() ? otNVal.trim().split(/\s+/) : [];
+
+                // For A+N, people on leave (regardless of A/N shift) may have OT
+                const leavePeople = selectedShift.queue.filter(e => {
+                    const st = parseAnState(shiftLeaves[e]);
+                    return st.onLeave;
+                });
+
+                // Simple sequential assignment (A leave first then N, or mixed)
+                // We assign A-suffixed first to A+leave people, etc. Best effort.
+                let aIdx = 0, nIdx = 0;
+                leavePeople.forEach(emp => {
+                    const st = parseAnState(shiftLeaves[emp]);
+                    if (st.shift === 'A' && aOTs[aIdx]) {
+                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+                        empInlineOTMap[emp]['an-leave-a'] = aOTs[aIdx++];
+                    } else if (st.shift === 'N' && nOTs[nIdx]) {
+                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+                        empInlineOTMap[emp]['an-leave-n'] = nOTs[nIdx++];
+                    } else if (aOTs[aIdx]) {
+                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+                        empInlineOTMap[emp]['an-leave'] = aOTs[aIdx++];
+                    }
+                });
+            }
 
             // Update copy text and render interactive buttons
             updateLineCopyText();
@@ -3526,6 +3380,9 @@
         function saveSelectionsToDB() {
             if (!selectedShift) return;
             
+            // Make sure shiftOTs reflects the latest OT replacements entered in the leave/OT rows
+            updateCombinedOTs();
+
             showLoading(true);
             const expected = getExpectedQueue();
             const isCompleted = (expected.length > 0 && expected.every(emp => parsedChoices[emp] && parsedChoices[emp].trim() !== '')) ? 1 : 0;
@@ -3581,8 +3438,9 @@
         }
 
         function getSuggestedQueue(targetDate = null, targetShiftType = null) {
-            const activeEmps = roster.filter(e => e.is_active === 1).map(e => e.initials);
-            if (activeEmps.length === 0) return [];
+            // All employees in the database are considered available (no Active/Inactive distinction anymore)
+            const allEmps = roster.map(e => e.initials);
+            if (allEmps.length === 0) return [];
             
             // Determine team of target shift
             const targetTeam = getTeamForDate(targetDate, targetShiftType);
@@ -3607,11 +3465,11 @@
                     baseQueue.push(first);
                 }
                 
-                // Keep only currently active employees (in case some were set to Inactive)
-                let suggested = baseQueue.filter(emp => activeEmps.includes(emp));
+                // Keep only employees that still exist in the current roster
+                let suggested = baseQueue.filter(emp => allEmps.includes(emp));
                 
-                // If the queue size is less than 13 (due to inactive filtering), fill from active roster
-                activeEmps.forEach(emp => {
+                // Fill up to 13 from the current roster if needed (new employees added via queue textarea will appear after next load)
+                allEmps.forEach(emp => {
                     if (suggested.length < 13 && !suggested.includes(emp)) {
                         suggested.push(emp);
                     }
@@ -3619,8 +3477,8 @@
                 
                 return suggested.slice(0, 13);
             }
-            // Fallback: take first 13 of active employees
-            return activeEmps.slice(0, 13);
+            // Fallback: take first 13 of employees
+            return allEmps.slice(0, 13);
         }
 
         function updateCreateShiftTeamHelper() {
@@ -3755,19 +3613,6 @@
             document.getElementById('create-shift-modal').classList.add('active');
         }
 
-        function openEmployeeModal(id = null, initials = '', fullname = '') {
-            const title = document.getElementById('emp-modal-title');
-            document.getElementById('emp-id-input').value = id || '';
-            document.getElementById('emp-initials-input').value = initials;
-            document.getElementById('emp-fullname-input').value = fullname;
-            
-            // Disable editing initials if modifying existing to prevent duplicates
-            document.getElementById('emp-initials-input').disabled = id !== null;
-
-            title.innerText = id ? 'แก้ไขข้อมูลพนักงาน' : 'เพิ่มรายชื่อพนักงานใหม่';
-            document.getElementById('employee-modal').classList.add('active');
-        }
-
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
         }
@@ -3819,59 +3664,6 @@
             .finally(() => {
                 showLoading(false);
             });
-        }
-
-        function submitSaveEmployee() {
-            const id = document.getElementById('emp-id-input').value;
-            const initials = document.getElementById('emp-initials-input').value.trim();
-            const fullname = document.getElementById('emp-fullname-input').value.trim();
-
-            if (!initials || !fullname) {
-                showToast("โปรดระบุชื่อย่อและชื่อ-นามสกุลพนักงาน", "warning");
-                return;
-            }
-
-            showLoading(true);
-            const payload = { initials, full_name: fullname };
-            if (id) payload.id = parseInt(id);
-
-            fetch('/api/employees', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-                showToast("บันทึกข้อมูลพนักงานเสร็จสิ้น", "success");
-                closeModal('employee-modal');
-                loadAllData();
-            })
-            .catch(err => {
-                showToast(err.message, "error");
-            })
-            .finally(() => {
-                showLoading(false);
-            });
-        }
-
-        function deleteEmployee(id) {
-            if (!confirm("คุณต้องการลบรายชื่อพนักงานคนนี้ออกจากระบบใช่หรือไม่?")) return;
-            
-            showLoading(true);
-            fetch(`/api/employees/${id}`, { method: 'DELETE' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) throw new Error(data.error);
-                    showToast("ลบรายชื่อพนักงานสำเร็จ", "success");
-                    loadAllData();
-                })
-                .catch(err => {
-                    showToast(err.message, "error");
-                })
-                .finally(() => {
-                    showLoading(false);
-                });
         }
 
         function deleteShift(id) {
