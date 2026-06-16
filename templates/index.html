@@ -247,6 +247,7 @@
         let activeEditingCell = null;
         let isEditLogMode = false;
         let originalLogHtml = '';
+        let expandedMonthKeys = new Set();
         let parsedChoices = {};
         let shiftLeaves = {};
         let shiftOTs = [];
@@ -348,7 +349,21 @@
             })
             .finally(() => {
                 showLoading(false);
+                openLogFromUrlIfPresent();
             });
+        }
+
+        function openLogFromUrlIfPresent() {
+            const params = new URLSearchParams(window.location.search);
+            const logId = params.get('log');
+            if (!logId) return;
+
+            viewHourlyLog(logId);
+
+            params.delete('log');
+            const cleanQuery = params.toString();
+            const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ''}${window.location.hash}`;
+            window.history.replaceState({}, '', cleanUrl);
         }
 
         function updateStats() {
@@ -416,6 +431,7 @@
                 if (!groups[key]) {
                     const englishMonth = monthNamesEnglish[monthNum - 1] || "Unknown";
                     groups[key] = {
+                        key: key,
                         year: year,
                         monthNum: monthNum,
                         label: `${englishMonth} ${year}`,
@@ -427,6 +443,97 @@
 
             const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
             return sortedKeys.map(key => groups[key]);
+        }
+
+        function getCurrentMonthKey() {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function isMonthExpanded(monthKey, isCurrentMonth, isPastMonth) {
+            if (isCurrentMonth || !isPastMonth) return true;
+            return expandedMonthKeys.has(monthKey);
+        }
+
+        function getMonthToggleButtonHtml(isExpanded) {
+            return isExpanded
+                ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg><span>ย่อ</span>`
+                : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg><span>แสดง</span>`;
+        }
+
+        function renderMonthShiftCards(group, cardsGrid) {
+            cardsGrid.innerHTML = '';
+            group.shifts.forEach(shift => {
+                const isMorning = shift.shift_type === 'M8/A14';
+                const cardClass = isMorning ? 'shift-morning' : 'shift-an';
+                const card = document.createElement('div');
+                const isCompleted = shift.is_completed === 1;
+                const queueCount = shift.queue ? shift.queue.length : 0;
+
+                const team = getTeamForDate(shift.date, shift.shift_type);
+                let teamLabel = '';
+                let teamClass = 'team-neutral';
+                if (team === 'purple') {
+                    teamClass = 'team-purple';
+                    teamLabel = 'ทีมม่วง';
+                } else if (team === 'green') {
+                    teamClass = 'team-green';
+                    teamLabel = 'ทีมเขียว';
+                }
+
+                card.className = `shift-card ${cardClass} ${teamClass}`;
+
+                const teamMeta = teamLabel
+                    ? `<span class="card-meta-dot">·</span><span class="card-team">${teamLabel}</span>`
+                    : '';
+
+                card.innerHTML = `
+                    <div class="card-top">
+                        <div class="card-date">${shift.date_display}</div>
+                        <span class="card-status ${isCompleted ? 'completed' : 'pending'}" title="${isCompleted ? 'จัดเวรสำเร็จ' : 'ยังไม่เสร็จ'}">
+                            <span class="card-status-dot"></span>
+                            <span class="card-status-text">${isCompleted ? 'สำเร็จ' : 'ค้าง'}</span>
+                        </span>
+                    </div>
+                    <div class="card-meta">
+                        <span class="card-shift-type">${isMorning ? 'เช้า' : 'บ่ายดึก'}</span>
+                        ${teamMeta}
+                        <span class="card-meta-dot">·</span>
+                        <span class="card-supervisor">${shift.supervisor || '—'}</span>
+                    </div>
+                    <div class="card-footer">
+                        <span class="card-queue">${queueCount} คนในคิว</span>
+                        <div class="card-actions">
+                            <button type="button" class="card-btn card-btn-primary" title="ห้องจัดเวร" onclick="selectShiftById(${shift.id})">จัดเวร</button>
+                            <button type="button" class="card-btn card-btn-log" title="ดูตาราง Log รายชั่วโมง" onclick="viewHourlyLog(${shift.id})">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>
+                                <span>ตาราง Log</span>
+                            </button>
+                            <button type="button" class="card-btn card-btn-icon card-btn-danger" title="ลบตารางเวร" onclick="deleteShift(${shift.id})">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                cardsGrid.appendChild(card);
+            });
+        }
+
+        function toggleMonthSection(monthKey, section, cardsGrid, group, toggleBtn) {
+            const willExpand = section.classList.contains('month-collapsed');
+
+            if (willExpand) {
+                section.classList.remove('month-collapsed');
+                expandedMonthKeys.add(monthKey);
+                renderMonthShiftCards(group, cardsGrid);
+            } else {
+                section.classList.add('month-collapsed');
+                expandedMonthKeys.delete(monthKey);
+                cardsGrid.innerHTML = '';
+            }
+
+            toggleBtn.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
+            toggleBtn.innerHTML = getMonthToggleButtonHtml(willExpand);
         }
 
         function renderShiftsGrid() {
@@ -447,60 +554,52 @@
             }
 
             const monthGroups = groupShiftsByMonth(shifts);
+            const currentMonthKey = getCurrentMonthKey();
+
             monthGroups.forEach(group => {
+                const monthKey = group.key;
+                const isCurrentMonth = monthKey === currentMonthKey;
+                const isPastMonth = monthKey < currentMonthKey;
+                const isExpanded = isMonthExpanded(monthKey, isCurrentMonth, isPastMonth);
+
                 const section = document.createElement('div');
                 section.className = 'month-section';
+                if (isCurrentMonth) section.classList.add('month-current');
+                if (!isExpanded) section.classList.add('month-collapsed');
 
-                const header = document.createElement('h3');
+                const header = document.createElement('div');
                 header.className = 'month-header';
-                header.innerHTML = `📅 ${group.label}`;
-                
+
+                const headerMain = document.createElement('div');
+                headerMain.className = 'month-header-main';
+                headerMain.innerHTML = `
+                    <span class="month-label">${group.label}${isCurrentMonth ? ' <span class="month-current-badge">เดือนนี้</span>' : ''}</span>
+                    <span class="month-count">${group.shifts.length} รายการ</span>
+                `;
+                header.appendChild(headerMain);
+
                 section.appendChild(header);
 
                 const cardsGrid = document.createElement('div');
                 cardsGrid.className = 'shifts-month-grid';
 
-                group.shifts.forEach(shift => {
-                    const isMorning = shift.shift_type === 'M8/A14';
-                    const cardClass = isMorning ? 'shift-morning' : 'shift-an';
-                    const card = document.createElement('div');
-                    
-                    const team = getTeamForDate(shift.date, shift.shift_type);
-                    let teamBadge = '';
-                    let teamClass = 'team-neutral';
-                    if (team === 'purple') {
-                        teamClass = 'team-purple';
-                        teamBadge = `<span class="team-badge purple">🟣 ม่วง</span>`;
-                    } else if (team === 'green') {
-                        teamClass = 'team-green';
-                        teamBadge = `<span class="team-badge green">🟢 เขียว</span>`;
-                    }
+                if (isExpanded) {
+                    renderMonthShiftCards(group, cardsGrid);
+                }
 
-                    card.className = `shift-card ${cardClass} ${teamClass}`;
+                if (isPastMonth) {
+                    const toggleBtn = document.createElement('button');
+                    toggleBtn.type = 'button';
+                    toggleBtn.className = 'month-toggle-btn';
+                    toggleBtn.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+                    toggleBtn.innerHTML = getMonthToggleButtonHtml(isExpanded);
+                    toggleBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleMonthSection(monthKey, section, cardsGrid, group, toggleBtn);
+                    });
+                    header.appendChild(toggleBtn);
+                }
 
-                    card.innerHTML = `
-                        <div class="card-header">
-                            <div class="card-date">${shift.date_display}</div>
-                            <div class="card-badges">
-                                ${teamBadge}
-                                <div class="card-badge">${isMorning ? 'เช้า' : 'บ่ายดึก'}</div>
-                            </div>
-                        </div>
-                        <div class="card-details">
-                            <div class="card-meta-supervisor">Sup: <strong>${shift.supervisor || '-'}</strong></div>
-                            <div class="card-meta-queue">คิว: <strong>${shift.queue ? shift.queue.length : 0}</strong></div>
-                            <div class="card-status-pill ${shift.is_completed === 1 ? 'completed' : 'pending'}">
-                                ${shift.is_completed === 1 ? '🟢 สำเร็จ' : '🔴 ค้างอยู่'}
-                            </div>
-                        </div>
-                        <div class="card-actions">
-                            <button class="btn btn-primary" title="ห้องจัดเวร" onclick="selectShiftById(${shift.id})">จัดเวร</button>
-                            <button class="btn btn-secondary btn-accent-an" title="ดูตาราง Log" onclick="viewHourlyLog(${shift.id})">📋</button>
-                            <button class="btn btn-danger" title="ลบตารางเวร" onclick="deleteShift(${shift.id})">ลบ</button>
-                        </div>
-                    `;
-                    cardsGrid.appendChild(card);
-                });
                 section.appendChild(cardsGrid);
                 grid.appendChild(section);
             });
@@ -2893,7 +2992,6 @@
         async function downloadLogAsImage() {
             const btn = document.getElementById('btn-download-log-img');
             const table = document.getElementById('hourly-log-table');
-            const tableWrapper = table.parentElement; // div ที่ครอบ table ไว้
 
             if (!table || table.innerHTML.trim() === '' || table.innerHTML.includes('<!-- Generated dynamically -->')) {
                 alert('ไม่พบข้อมูลตาราง Log กรุณาเปิดตาราง Log ก่อนนะครับ');
@@ -2913,24 +3011,12 @@
                     'top: -9999px',
                     'left: -9999px',
                     'background: #FFFFFF',
-                    'padding: 16px',
+                    'padding: 0',
                     'width: max-content',
-                    'min-width: 1200px',
-                    'font-family: "Inter", "Noto Sans Thai", sans-serif'
+                    'font-family: "Calibri", "Segoe UI", Arial, sans-serif'
                 ].join(';');
 
-                // ใส่หัวข้อ
-                const titleEl = document.createElement('div');
-                titleEl.style.cssText = 'font-size: 14px; font-weight: 700; color: #000000; margin-bottom: 4px;';
-                titleEl.textContent = document.getElementById('hourly-log-title').textContent;
-                captureEl.appendChild(titleEl);
-
-                const subtitleEl = document.createElement('div');
-                subtitleEl.style.cssText = 'font-size: 12px; color: #4B5563; margin-bottom: 12px;';
-                subtitleEl.textContent = document.getElementById('hourly-log-subtitle').textContent;
-                captureEl.appendChild(subtitleEl);
-
-                // Clone ตาราง
+                // Clone เฉพาะตาราง (ไม่รวม header ของ modal)
                 const tableClone = table.cloneNode(true);
                 tableClone.style.cssText = 'border-collapse: collapse; font-size: 0.82rem; background: #FFFFFF; color: #000000; width: max-content;';
                 captureEl.appendChild(tableClone);
