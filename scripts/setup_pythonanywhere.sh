@@ -5,7 +5,50 @@ USERNAME="chawakorn"
 PROJECT_DIR="/home/${USERNAME}/shiftflow"
 REPO_URL="https://github.com/kai-kaai/shiftflow.git"
 VENV_NAME="shiftflow-env"
+VENV_DIR="${HOME}/.virtualenvs/${VENV_NAME}"
 PYTHON_BIN="$(command -v python3.10 || command -v python3.11 || command -v python3)"
+
+load_virtualenvwrapper() {
+  export WORKON_HOME="${HOME}/.virtualenvs"
+  export PROJECT_HOME="${HOME}"
+
+  if [ -z "${VIRTUALENVWRAPPER_PYTHON:-}" ]; then
+    export VIRTUALENVWRAPPER_PYTHON="${PYTHON_BIN}"
+  fi
+
+  for wrapper in \
+    /usr/local/bin/virtualenvwrapper.sh \
+    /usr/share/virtualenvwrapper/virtualenvwrapper.sh \
+    "${HOME}/.local/bin/virtualenvwrapper.sh"
+  do
+    if [ -f "${wrapper}" ]; then
+      # shellcheck disable=SC1090
+      source "${wrapper}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+create_virtualenv() {
+  mkdir -p "${HOME}/.virtualenvs"
+
+  if [ -f "${VENV_DIR}/bin/activate" ]; then
+    echo "==> Virtualenv already exists: ${VENV_NAME}"
+    return 0
+  fi
+
+  echo "==> Creating virtualenv: ${VENV_NAME}"
+
+  if load_virtualenvwrapper && command -v mkvirtualenv >/dev/null 2>&1; then
+    mkvirtualenv --python="${PYTHON_BIN}" "${VENV_NAME}"
+    return 0
+  fi
+
+  echo "==> mkvirtualenv not available, using python -m venv"
+  "${PYTHON_BIN}" -m venv "${VENV_DIR}"
+}
 
 echo "==> ShiftFlow setup for PythonAnywhere (${USERNAME})"
 
@@ -22,13 +65,10 @@ else
   cd "${PROJECT_DIR}"
 fi
 
-if [ ! -f "${HOME}/.virtualenvs/${VENV_NAME}/bin/activate" ]; then
-  echo "==> Creating virtualenv: ${VENV_NAME}"
-  mkvirtualenv --python="${PYTHON_BIN}" "${VENV_NAME}"
-fi
+create_virtualenv
 
 # shellcheck disable=SC1091
-source "${HOME}/.virtualenvs/${VENV_NAME}/bin/activate"
+source "${VENV_DIR}/bin/activate"
 pip install --upgrade pip
 pip install -r requirements.txt
 
@@ -40,12 +80,12 @@ Project path:
   ${PROJECT_DIR}
 
 Virtualenv:
-  ${HOME}/.virtualenvs/${VENV_NAME}
+  ${VENV_DIR}
 
 Configure in Web tab (if this is a fresh setup):
   1. Add a new web app -> Manual configuration -> Python 3.10
   2. Source code: ${PROJECT_DIR}
-  3. Virtualenv: ${HOME}/.virtualenvs/${VENV_NAME}
+  3. Virtualenv: ${VENV_DIR}
   4. Static files: URL /static/ -> Directory ${PROJECT_DIR}/static/
   5. WSGI file content:
 
