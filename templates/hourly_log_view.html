@@ -273,6 +273,38 @@
             return minSide <= LOG_VIEW_DESKTOP_COMPACT_MAX;
         }
 
+        function isTabletLandscape() {
+            const width = getLogViewportWidth();
+            const height = getLogViewportHeight();
+            if (width <= height) return false;
+            return Math.min(width, height) >= 768;
+        }
+
+        function measureLogTableSize(wrapper, container, table, containerPadX, containerBorderX) {
+            if (isTabletLandscape()) {
+                wrapper.style.width = 'max-content';
+                wrapper.style.height = 'auto';
+                if (container) container.style.width = 'max-content';
+
+                const tableWidth = Math.max(table.scrollWidth, table.offsetWidth);
+                const naturalWidth = tableWidth + containerPadX + containerBorderX;
+
+                wrapper.style.width = `${naturalWidth}px`;
+                return {
+                    naturalWidth,
+                    naturalHeight: wrapper.getBoundingClientRect().height
+                };
+            }
+
+            const naturalWidth = table.offsetWidth + containerPadX + containerBorderX;
+            wrapper.style.width = `${naturalWidth}px`;
+            wrapper.style.height = 'auto';
+            return {
+                naturalWidth,
+                naturalHeight: wrapper.getBoundingClientRect().height
+            };
+        }
+
         function scheduleFitLogTable() {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(fitLogTableToViewport, 150);
@@ -294,6 +326,8 @@
                 host.style.width = '';
                 host.style.height = '';
             }
+            const container = host?.querySelector('.log-table-container');
+            if (container) container.style.width = '';
             page.classList.remove('log-table-fit');
             page.style.height = '';
             page.style.maxHeight = '';
@@ -334,14 +368,13 @@
 
             const viewportWidth = getLogViewportWidth();
             const viewportHeight = getLogViewportHeight();
-            const fitBuffer = touchLogViewportQuery.matches ? 12 : 8;
+            const tabletLandscape = isTabletLandscape();
+            const fitBuffer = tabletLandscape ? 16 : (touchLogViewportQuery.matches ? 12 : 8);
             const availableWidth = viewportWidth - pagePadX - fitBuffer;
             const availableHeight = viewportHeight - pagePadY - fitBuffer;
-            const naturalWidth = table.offsetWidth + containerPadX + containerBorderX;
-
-            wrapper.style.width = `${naturalWidth}px`;
-            wrapper.style.height = 'auto';
-            const naturalHeight = wrapper.getBoundingClientRect().height;
+            const { naturalWidth, naturalHeight } = measureLogTableSize(
+                wrapper, container, table, containerPadX, containerBorderX
+            );
 
             if (!naturalWidth || !naturalHeight || !availableWidth || !availableHeight) {
                 return;
@@ -349,7 +382,11 @@
 
             const scaleX = availableWidth / naturalWidth;
             const scaleY = availableHeight / naturalHeight;
-            const scale = Math.min(scaleX, scaleY, 1);
+            let scale = Math.min(scaleX, scaleY, 1);
+
+            if (scale >= 0.999 && tabletLandscape && scaleX < 0.999) {
+                scale = Math.min(scaleX, scaleY, 1);
+            }
 
             if (scale >= 0.999) {
                 if (hint) hint.style.display = 'none';
