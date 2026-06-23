@@ -13,10 +13,14 @@
 
     <div class="log-view-loading" id="loading-indicator">กำลังดาวน์โหลดข้อมูลตารางเวร...</div>
 
-    <div id="table-container" style="display: none; width: 100%;">
-        <p class="log-view-scroll-hint">เลื่อนซ้าย-ขวาเพื่อดูตารางทั้งหมด</p>
-        <div class="log-table-container">
-            <table id="hourly-log-table"></table>
+    <div id="table-container" class="log-table-panel">
+        <p class="log-view-scroll-hint" id="log-scroll-hint">เลื่อนซ้าย-ขวาเพื่อดูตารางทั้งหมด</p>
+        <div class="log-table-scale-host" id="log-table-scale-host">
+            <div class="log-table-scale-wrapper" id="log-table-scale-wrapper">
+                <div class="log-table-container">
+                    <table id="hourly-log-table"></table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -55,7 +59,10 @@
                     renderTable(data);
 
                     document.getElementById('loading-indicator').style.display = 'none';
-                    document.getElementById('table-container').style.display = 'block';
+                    document.getElementById('table-container').classList.add('is-visible');
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(fitLogTableToViewport);
+                    });
                 })
                 .catch(err => {
                     document.getElementById('loading-indicator').innerText = `เกิดข้อผิดพลาด: ${err.message}`;
@@ -235,6 +242,155 @@
             }
 
             table.appendChild(tbody);
+        }
+
+        const LOG_VIEW_TABLET_MAX = 1366;
+        const LOG_VIEW_DESKTOP_COMPACT_MAX = 1023;
+        const compactLogViewportQuery = window.matchMedia(
+            `(max-width: ${LOG_VIEW_TABLET_MAX}px), (max-height: ${LOG_VIEW_TABLET_MAX}px)`
+        );
+        const touchLogViewportQuery = window.matchMedia('(hover: none), (pointer: coarse)');
+        let resizeTimer = null;
+
+        function getLogViewportWidth() {
+            return window.visualViewport?.width ?? window.innerWidth;
+        }
+
+        function getLogViewportHeight() {
+            return window.visualViewport?.height ?? window.innerHeight;
+        }
+
+        function isCompactLogViewport() {
+            const width = getLogViewportWidth();
+            const height = getLogViewportHeight();
+            const minSide = Math.min(width, height);
+            const maxSide = Math.max(width, height);
+
+            if (touchLogViewportQuery.matches) {
+                return maxSide <= LOG_VIEW_TABLET_MAX;
+            }
+
+            return minSide <= LOG_VIEW_DESKTOP_COMPACT_MAX;
+        }
+
+        function scheduleFitLogTable() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(fitLogTableToViewport, 150);
+        }
+
+        function resetLogTableFit() {
+            const root = document.documentElement;
+            const page = document.body;
+            const host = document.getElementById('log-table-scale-host');
+            const wrapper = document.getElementById('log-table-scale-wrapper');
+            const hint = document.getElementById('log-scroll-hint');
+
+            if (wrapper) {
+                wrapper.style.transform = '';
+                wrapper.style.zoom = '';
+                wrapper.style.width = '';
+                wrapper.style.height = '';
+            }
+            if (host) {
+                host.style.width = '';
+                host.style.height = '';
+            }
+            page.classList.remove('log-table-fit');
+            root.classList.remove('log-view-fit-root');
+            if (hint) hint.style.display = '';
+        }
+
+        function fitLogTableToViewport() {
+            const root = document.documentElement;
+            const page = document.body;
+            const host = document.getElementById('log-table-scale-host');
+            const wrapper = document.getElementById('log-table-scale-wrapper');
+            const container = host?.querySelector('.log-table-container');
+            const table = document.getElementById('hourly-log-table');
+            const hint = document.getElementById('log-scroll-hint');
+
+            if (!host || !wrapper || !table || !table.rows.length) return;
+
+            resetLogTableFit();
+
+            if (!isCompactLogViewport()) {
+                if (hint) hint.style.display = 'none';
+                return;
+            }
+
+            if (hint) hint.style.display = 'none';
+
+            const pageStyle = getComputedStyle(page);
+            const pagePadX = parseFloat(pageStyle.paddingLeft) + parseFloat(pageStyle.paddingRight);
+            const pagePadY = parseFloat(pageStyle.paddingTop) + parseFloat(pageStyle.paddingBottom);
+            const containerStyle = container ? getComputedStyle(container) : null;
+            const containerPadX = containerStyle
+                ? parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight)
+                : 0;
+            const containerBorderX = containerStyle
+                ? parseFloat(containerStyle.borderLeftWidth) + parseFloat(containerStyle.borderRightWidth)
+                : 0;
+
+            const isLandscape = window.innerWidth > window.innerHeight;
+            const fitBuffer = isLandscape ? 8 : 4;
+            const availableWidth = getLogViewportWidth() - pagePadX - fitBuffer;
+            const availableHeight = getLogViewportHeight() - pagePadY - fitBuffer;
+            const naturalWidth = table.offsetWidth + containerPadX + containerBorderX;
+
+            wrapper.style.width = `${naturalWidth}px`;
+            const naturalHeight = wrapper.offsetHeight;
+
+            if (!naturalWidth || !naturalHeight || !availableWidth || !availableHeight) {
+                return;
+            }
+
+            const scaleX = availableWidth / naturalWidth;
+            const scaleY = isLandscape
+                ? availableHeight / naturalHeight
+                : Number.POSITIVE_INFINITY;
+            const scale = Math.min(scaleX, scaleY, 1);
+
+            if (scale >= 0.999) {
+                if (hint) hint.style.display = 'none';
+                return;
+            }
+
+            const scaledWidth = naturalWidth * scale;
+            const scaledHeight = naturalHeight * scale;
+            const canUseZoom = typeof CSS !== 'undefined' && CSS.supports?.('zoom', '1');
+
+            page.classList.add('log-table-fit');
+            root.classList.add('log-view-fit-root');
+            wrapper.style.width = `${naturalWidth}px`;
+            wrapper.style.height = `${naturalHeight}px`;
+
+            if (canUseZoom) {
+                host.style.width = 'auto';
+                host.style.height = 'auto';
+                wrapper.style.zoom = String(scale);
+            } else {
+                host.style.width = `${scaledWidth}px`;
+                host.style.height = `${scaledHeight}px`;
+                wrapper.style.transform = `scale(${scale})`;
+                wrapper.style.transformOrigin = 'top left';
+            }
+        }
+
+        window.addEventListener('resize', scheduleFitLogTable);
+        window.addEventListener('orientationchange', () => {
+            requestAnimationFrame(fitLogTableToViewport);
+            setTimeout(fitLogTableToViewport, 250);
+        });
+
+        if (compactLogViewportQuery.addEventListener) {
+            compactLogViewportQuery.addEventListener('change', scheduleFitLogTable);
+        } else if (compactLogViewportQuery.addListener) {
+            compactLogViewportQuery.addListener(scheduleFitLogTable);
+        }
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', scheduleFitLogTable);
+            window.visualViewport.addEventListener('scroll', scheduleFitLogTable);
         }
     </script>
 </body>

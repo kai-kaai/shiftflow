@@ -1651,6 +1651,25 @@ textarea:focus {
     display: none;
 }
 
+.log-table-panel {
+    display: none;
+    width: 100%;
+}
+
+.log-table-panel.is-visible {
+    display: block;
+}
+
+.log-table-scale-host {
+    width: 100%;
+    overflow: visible;
+}
+
+.log-table-scale-wrapper {
+    margin: 0 auto;
+    transform-origin: top left;
+}
+
 .log-table-container {
     width: 100%;
     overflow-x: auto;
@@ -1662,8 +1681,50 @@ textarea:focus {
     -webkit-overflow-scrolling: touch;
 }
 
+.log-view-page.log-table-fit .log-table-scale-wrapper {
+    flex-shrink: 0;
+}
+
+.log-view-page.log-table-fit .log-table-container {
+    overflow-x: visible;
+    width: max-content;
+    margin: 0 auto;
+}
+
+html.log-view-fit-root {
+    overflow: hidden;
+}
+
+.log-view-page.log-table-fit {
+    overflow: hidden;
+    min-height: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    box-sizing: border-box;
+    justify-content: center;
+}
+
+.log-view-page.log-table-fit .log-table-panel.is-visible {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+.log-view-page.log-table-fit .log-table-scale-host {
+    overflow: visible;
+    flex-shrink: 0;
+}
+
+.log-view-page.log-table-fit .log-view-scroll-hint {
+    display: none !important;
+}
+
 .log-table-container table,
-#hourly-log-table {
+.log-view-page #hourly-log-table {
     min-width: 1200px;
     border-collapse: collapse;
     font-family: "Calibri", "Segoe UI", Arial, sans-serif;
@@ -1719,6 +1780,32 @@ textarea:focus {
 
     .tab-content {
         padding: 1rem;
+    }
+
+}
+
+@media (max-width: 1366px), (max-height: 1366px) {
+    .log-view-page {
+        padding: 1rem 0.75rem 1.5rem;
+    }
+
+    .log-view-page .log-table-container {
+        padding: 0.75rem;
+    }
+
+    .log-view-page:not(.log-table-fit) .log-view-scroll-hint {
+        display: block;
+    }
+}
+
+@media (orientation: landscape) and (max-height: 1024px) {
+    .log-view-page.log-table-fit {
+        padding: 0.25rem 0.5rem;
+    }
+
+    .log-view-page.log-table-fit .log-table-container {
+        padding: 0.35rem;
+        border-radius: 0.35rem;
     }
 }
 
@@ -1906,14 +1993,6 @@ textarea:focus {
         transform: translateY(0);
     }
 
-    .log-view-page {
-        padding: 1rem;
-        padding-bottom: 1.5rem;
-    }
-
-    .log-view-scroll-hint {
-        display: block;
-    }
 }
 
 /* ─── Desktop hover (no touch) ─── */
