@@ -10,6 +10,7 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'shiftflow.db')
+MASTER_LOG_EDIT_PASSWORD = 'admin'
 
 DEFAULT_EMPLOYEES = [
     'BP', 'CQ', 'DY', 'JZ', 'KJ', 'PB', 'PP', 'PR', 'SG', 'SN', 'TH', 'TT', 'TY', 'WE', 'WF', 'YJ', 'YQ'
@@ -589,6 +590,10 @@ def save_template_hourly_log(shift_type_slug):
     data = request.json
     if not data or 'custom_log' not in data:
         return jsonify({"error": "Missing custom_log"}), 400
+
+    password = data.get('password', '')
+    if password != MASTER_LOG_EDIT_PASSWORD:
+        return jsonify({"error": "รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง"}), 403
         
     custom_log = data.get('custom_log')
 

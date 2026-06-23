@@ -220,6 +220,24 @@
         </div>
     </div>
 
+    <!-- Master Log Password Modal -->
+    <div id="master-log-password-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'master-log-password-modal')">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">ยืนยันรหัสผ่าน Master Log</div>
+                <button class="btn btn-secondary btn-sm" onclick="closeMasterLogPasswordModal()">✖</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="master-log-password-input">กรอกรหัสผ่านเพื่อแก้ไข Master Log</label>
+                <input type="password" id="master-log-password-input" class="form-input" placeholder="รหัสผ่าน" autocomplete="off" onkeydown="handleMasterLogPasswordKeydown(event)">
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeMasterLogPasswordModal()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="submitMasterLogPassword()">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Color Picker Popup -->
     <div id="log-cell-color-picker" class="log-cell-color-picker">
         <button class="log-color-btn" style="background-color: #FFFFFF;" title="ไม่มีสี" onclick="selectPickerColor('#FFFFFF')"></button>
@@ -247,6 +265,8 @@
         let activeEditingCell = null;
         let isEditLogMode = false;
         let originalLogHtml = '';
+        let masterLogEditPassword = '';
+        const MASTER_LOG_EDIT_PASSWORD = 'admin';
         let expandedMonthKeys = new Set();
         let parsedChoices = {};
         let shiftLeaves = {};
@@ -616,9 +636,14 @@
             window.open(`/hourly-log/view?id=${currentLogShiftId}`, '_blank');
         }
 
+        function isMasterLogShiftId(id) {
+            return String(id).startsWith('template:');
+        }
+
         function viewHourlyLog(id) {
             currentLogShiftId = id;
             isEditLogMode = false;
+            masterLogEditPassword = '';
             
             // Reset Edit button and footer states when modal opens
             const editBtn = document.getElementById('btn-edit-hourly-log');
@@ -839,29 +864,78 @@
 
         // --- Custom Hourly Log Editing Handlers ---
         function toggleEditLogMode() {
+            if (isEditLogMode) return;
+
+            if (isMasterLogShiftId(currentLogShiftId)) {
+                openMasterLogPasswordModal();
+                return;
+            }
+
+            enterEditLogMode();
+        }
+
+        function enterEditLogMode() {
             const editBtn = document.getElementById('btn-edit-hourly-log');
             const footer = document.getElementById('hourly-log-footer');
-            
-            if (!isEditLogMode) {
-                // Enter edit mode
-                isEditLogMode = true;
-                originalLogHtml = document.getElementById('hourly-log-table').innerHTML;
-                
-                // Show footer, update edit button text/styling
-                footer.style.display = 'flex';
-                editBtn.innerHTML = '✏️ <span class="btn-label">โหมดแก้ไขกำลังทำงาน</span>';
-                editBtn.className = 'btn btn-secondary btn-sm btn-accent-warning';
-                
-                // Make cells editable
-                const cells = document.querySelectorAll('.log-task-cell');
-                cells.forEach(cell => {
-                    cell.setAttribute('contenteditable', 'true');
-                    cell.classList.add('editing-active');
-                });
-                
-                // Setup click/focus listener for the color picker
-                setupColorPickerListeners();
+
+            isEditLogMode = true;
+            originalLogHtml = document.getElementById('hourly-log-table').innerHTML;
+
+            footer.style.display = 'flex';
+            editBtn.innerHTML = '✏️ <span class="btn-label">โหมดแก้ไขกำลังทำงาน</span>';
+            editBtn.className = 'btn btn-secondary btn-sm btn-accent-warning';
+
+            const cells = document.querySelectorAll('.log-task-cell');
+            cells.forEach(cell => {
+                cell.setAttribute('contenteditable', 'true');
+                cell.classList.add('editing-active');
+            });
+
+            setupColorPickerListeners();
+        }
+
+        function openMasterLogPasswordModal() {
+            const input = document.getElementById('master-log-password-input');
+            if (input) {
+                input.value = '';
             }
+            document.getElementById('master-log-password-modal').classList.add('active');
+            if (input) {
+                setTimeout(() => input.focus(), 0);
+            }
+        }
+
+        function closeMasterLogPasswordModal() {
+            const input = document.getElementById('master-log-password-input');
+            if (input) {
+                input.value = '';
+            }
+            closeModal('master-log-password-modal');
+        }
+
+        function handleMasterLogPasswordKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitMasterLogPassword();
+            }
+        }
+
+        function submitMasterLogPassword() {
+            const input = document.getElementById('master-log-password-input');
+            const password = input ? input.value : '';
+
+            if (password !== MASTER_LOG_EDIT_PASSWORD) {
+                showToast('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง', 'error');
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                }
+                return;
+            }
+
+            masterLogEditPassword = password;
+            closeMasterLogPasswordModal();
+            enterEditLogMode();
         }
 
         function cancelEditLogMode() {
@@ -872,6 +946,7 @@
             
             // Exit edit mode
             isEditLogMode = false;
+            masterLogEditPassword = '';
             
             const editBtn = document.getElementById('btn-edit-hourly-log');
             const footer = document.getElementById('hourly-log-footer');
@@ -975,10 +1050,22 @@
                 });
             }
             
+            const isMasterLog = isMasterLogShiftId(currentLogShiftId);
             let postUrl = `/api/shifts/${currentLogShiftId}/hourly-log`;
-            if (String(currentLogShiftId).startsWith('template:')) {
+            if (isMasterLog) {
                 const typeSlug = String(currentLogShiftId).split(':')[1].replace('/', '_').replace('+', '_');
                 postUrl = `/api/templates/${typeSlug}/hourly-log`;
+            }
+
+            const payload = { custom_log: custom_log };
+            if (isMasterLog) {
+                if (!masterLogEditPassword) {
+                    showToast('กรุณากรอกรหัสผ่านเพื่อแก้ไข Master Log', 'warning');
+                    showLoading(false);
+                    openMasterLogPasswordModal();
+                    return;
+                }
+                payload.password = masterLogEditPassword;
             }
             
             fetch(postUrl, {
@@ -986,11 +1073,12 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ custom_log: custom_log })
+                body: JSON.stringify(payload)
             })
-            .then(res => {
-                if (!res.ok) throw new Error("ไม่สามารถบันทึกตาราง Log ได้");
-                return res.json();
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "ไม่สามารถบันทึกตาราง Log ได้");
+                return data;
             })
             .then(data => {
                 if (data.error) throw new Error(data.error);
@@ -998,6 +1086,7 @@
                 
                 // Exit Edit Mode
                 isEditLogMode = false;
+                masterLogEditPassword = '';
                 const editBtn = document.getElementById('btn-edit-hourly-log');
                 const footer = document.getElementById('hourly-log-footer');
                 if (footer) footer.style.display = 'none';
