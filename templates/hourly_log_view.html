@@ -61,7 +61,7 @@
                     document.getElementById('loading-indicator').style.display = 'none';
                     document.getElementById('table-container').classList.add('is-visible');
                     requestAnimationFrame(() => {
-                        requestAnimationFrame(fitLogTableToViewport);
+                        requestAnimationFrame(scheduleFitAfterLoad);
                     });
                 })
                 .catch(err => {
@@ -287,7 +287,6 @@
 
             if (wrapper) {
                 wrapper.style.transform = '';
-                wrapper.style.zoom = '';
                 wrapper.style.width = '';
                 wrapper.style.height = '';
             }
@@ -296,6 +295,8 @@
                 host.style.height = '';
             }
             page.classList.remove('log-table-fit');
+            page.style.height = '';
+            page.style.maxHeight = '';
             root.classList.remove('log-view-fit-root');
             if (hint) hint.style.display = '';
         }
@@ -331,23 +332,23 @@
                 ? parseFloat(containerStyle.borderLeftWidth) + parseFloat(containerStyle.borderRightWidth)
                 : 0;
 
-            const isLandscape = window.innerWidth > window.innerHeight;
-            const fitBuffer = isLandscape ? 8 : 4;
-            const availableWidth = getLogViewportWidth() - pagePadX - fitBuffer;
-            const availableHeight = getLogViewportHeight() - pagePadY - fitBuffer;
+            const viewportWidth = getLogViewportWidth();
+            const viewportHeight = getLogViewportHeight();
+            const fitBuffer = touchLogViewportQuery.matches ? 12 : 8;
+            const availableWidth = viewportWidth - pagePadX - fitBuffer;
+            const availableHeight = viewportHeight - pagePadY - fitBuffer;
             const naturalWidth = table.offsetWidth + containerPadX + containerBorderX;
 
             wrapper.style.width = `${naturalWidth}px`;
-            const naturalHeight = wrapper.offsetHeight;
+            wrapper.style.height = 'auto';
+            const naturalHeight = wrapper.getBoundingClientRect().height;
 
             if (!naturalWidth || !naturalHeight || !availableWidth || !availableHeight) {
                 return;
             }
 
             const scaleX = availableWidth / naturalWidth;
-            const scaleY = isLandscape
-                ? availableHeight / naturalHeight
-                : Number.POSITIVE_INFINITY;
+            const scaleY = availableHeight / naturalHeight;
             const scale = Math.min(scaleX, scaleY, 1);
 
             if (scale >= 0.999) {
@@ -357,29 +358,29 @@
 
             const scaledWidth = naturalWidth * scale;
             const scaledHeight = naturalHeight * scale;
-            const canUseZoom = typeof CSS !== 'undefined' && CSS.supports?.('zoom', '1');
 
             page.classList.add('log-table-fit');
             root.classList.add('log-view-fit-root');
+            page.style.height = `${viewportHeight}px`;
+            page.style.maxHeight = `${viewportHeight}px`;
+            host.style.width = `${scaledWidth}px`;
+            host.style.height = `${scaledHeight}px`;
             wrapper.style.width = `${naturalWidth}px`;
             wrapper.style.height = `${naturalHeight}px`;
+            wrapper.style.transform = `scale(${scale})`;
+            wrapper.style.transformOrigin = 'top left';
+        }
 
-            if (canUseZoom) {
-                host.style.width = 'auto';
-                host.style.height = 'auto';
-                wrapper.style.zoom = String(scale);
-            } else {
-                host.style.width = `${scaledWidth}px`;
-                host.style.height = `${scaledHeight}px`;
-                wrapper.style.transform = `scale(${scale})`;
-                wrapper.style.transformOrigin = 'top left';
-            }
+        function scheduleFitAfterLoad() {
+            fitLogTableToViewport();
+            [120, 350, 700].forEach((delay) => {
+                setTimeout(fitLogTableToViewport, delay);
+            });
         }
 
         window.addEventListener('resize', scheduleFitLogTable);
         window.addEventListener('orientationchange', () => {
-            requestAnimationFrame(fitLogTableToViewport);
-            setTimeout(fitLogTableToViewport, 250);
+            requestAnimationFrame(scheduleFitAfterLoad);
         });
 
         if (compactLogViewportQuery.addEventListener) {

@@ -1693,29 +1693,30 @@ textarea:focus {
 
 html.log-view-fit-root {
     overflow: hidden;
+    height: 100%;
 }
 
 .log-view-page.log-table-fit {
     overflow: hidden;
     min-height: 0;
-    height: 100dvh;
-    max-height: 100dvh;
     box-sizing: border-box;
-    justify-content: center;
+    justify-content: flex-start;
+    align-items: center;
 }
 
 .log-view-page.log-table-fit .log-table-panel.is-visible {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     flex: 1;
     min-height: 0;
     width: 100%;
+    overflow: hidden;
 }
 
 .log-view-page.log-table-fit .log-table-scale-host {
-    overflow: visible;
+    overflow: hidden;
     flex-shrink: 0;
 }
 
