@@ -271,6 +271,8 @@
         let parsedChoices = {};
         let shiftLeaves = {};
         let shiftOTs = [];
+        // Per-employee OT map: { empName: { leaveType: 'INITIALS' } }
+        const empInlineOTMap = {};
 
         // Log structures for preview
         const morningLogs = [
@@ -1117,6 +1119,99 @@
             }
         });
 
+        function restoreOTReplacementsFromShift(shift) {
+            const reps = shift.ot_replacements;
+            if (!reps || typeof reps !== 'object' || Array.isArray(reps)) return;
+            Object.entries(reps).forEach(([emp, typeMap]) => {
+                if (typeMap && typeof typeMap === 'object' && Object.keys(typeMap).length > 0) {
+                    empInlineOTMap[emp] = { ...typeMap };
+                }
+            });
+        }
+
+        function migrateLegacyOTInputsToMap() {
+            if (!selectedShift || Object.keys(empInlineOTMap).length > 0) return;
+
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            const wsInitials = (selectedShift.supervisor || '').match(/[A-Z]{2}/g) || [];
+            const svParts = (selectedShift.supervisor || '').split(/[\/-]/).map(s => s.trim().toUpperCase());
+            const queue = selectedShift.queue || [];
+
+            const assignBucket = (leaveKey, hiddenId) => {
+                const val = document.getElementById(hiddenId)?.value || '';
+                const names = val.split(/[\s,;\n]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+                const empsOnLeave = queue.filter(e => !wsInitials.includes(e) && shiftLeaves[e] === leaveKey);
+                empsOnLeave.forEach((emp, i) => {
+                    if (!names[i]) return;
+                    if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+                    empInlineOTMap[emp][leaveKey] = names[i];
+                });
+            };
+
+            const assignWs = (wsEmp, leaveKey, hiddenId) => {
+                if (!wsEmp || shiftLeaves[wsEmp] !== leaveKey) return;
+                const val = document.getElementById(hiddenId)?.value?.trim().toUpperCase();
+                if (!val) return;
+                if (!empInlineOTMap[wsEmp]) empInlineOTMap[wsEmp] = {};
+                empInlineOTMap[wsEmp][leaveKey] = val;
+            };
+
+            if (isMorning) {
+                assignBucket('full', 'attendance-ot-input');
+                assignBucket('half-morning', 'attendance-ot-morning-input');
+                assignBucket('half-afternoon', 'attendance-ot-afternoon-input');
+                assignWs(svParts[0], 'full', 'attendance-ws-m8-ot-input');
+                assignWs(svParts[0], 'half-morning', 'attendance-ws-m8-morning-ot-input');
+                assignWs(svParts[0], 'half-afternoon', 'attendance-ws-m8-afternoon-ot-input');
+                assignWs(svParts[1], 'full', 'attendance-ws-a14-ot-input');
+                assignWs(svParts[1], 'half-morning', 'attendance-ws-a14-morning-ot-input');
+                assignWs(svParts[1], 'half-afternoon', 'attendance-ws-a14-afternoon-ot-input');
+            } else {
+                const assignAnBucket = (leaveKey, hiddenId) => {
+                    const val = document.getElementById(hiddenId)?.value || '';
+                    const names = val.split(/[\s,;\n]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+                    const empsOnLeave = queue.filter(e => {
+                        if (wsInitials.includes(e)) return false;
+                        const st = parseAnState(shiftLeaves[e]);
+                        if (leaveKey === 'an-leave-a') return st.onLeave && st.shift === 'A';
+                        if (leaveKey === 'an-leave-n') return st.onLeave && st.shift === 'N';
+                        return st.onLeave && !st.shift;
+                    });
+                    empsOnLeave.forEach((emp, i) => {
+                        if (!names[i]) return;
+                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
+                        empInlineOTMap[emp][leaveKey] = names[i];
+                    });
+                };
+                assignAnBucket('an-leave-a', 'attendance-ot-a-input');
+                assignAnBucket('an-leave-n', 'attendance-ot-n-input');
+                assignAnBucket('an-leave', 'attendance-ot-a-input');
+                assignWs(svParts[0], 'full', 'attendance-ws-n-ot-input');
+            }
+        }
+
+        function syncOTInputsFromState() {
+            if (Object.keys(empInlineOTMap).length > 0) {
+                syncInlineOTsToHiddenInputs();
+                return;
+            }
+            syncOTInputsFromShiftOTs();
+            migrateLegacyOTInputsToMap();
+            if (Object.keys(empInlineOTMap).length > 0) {
+                syncInlineOTsToHiddenInputs();
+            }
+        }
+
+        function collectOTReplacementsPayload() {
+            const payload = {};
+            Object.entries(empInlineOTMap).forEach(([emp, typeMap]) => {
+                if (typeMap && Object.keys(typeMap).length > 0) {
+                    payload[emp] = { ...typeMap };
+                }
+            });
+            return payload;
+        }
+
         function syncOTInputsFromShiftOTs() {
             if (!selectedShift) return;
             const isMorning = selectedShift.shift_type === 'M8/A14';
@@ -1326,6 +1421,7 @@
             
             // No auto-initialization of A/N assignments. Default is no selection, user will select manually.
             shiftOTs = shift.ots || [];
+            restoreOTReplacementsFromShift(shift);
             
             const wsInitials = (shift.supervisor || '').match(/[A-Z]{2}/g) || [];
             if (shift.selections) {
@@ -1467,88 +1563,13 @@
                 document.getElementById('line-paste-input').value = lines.join('\n');
             }
 
-            // Populate OT inputs if existing selections contain OT employees
-            syncOTInputsFromShiftOTs();
+            // Populate hidden OT inputs from per-employee map (or legacy ots fallback)
+            syncOTInputsFromState();
 
-            // === FIX: Repopulate empInlineOTMap from saved shiftOTs + current shiftLeaves ===
-            // This makes the "OT แทน (เต็มวัน)" etc. inputs show the correct replacement name
-            // after full page reload (when empInlineOTMap starts empty).
-            const isMorningForOT = selectedShift.shift_type === 'M8/A14';
-            if (isMorningForOT) {
-                const fullVal = document.getElementById('attendance-ot-input')?.value || '';
-                const morningVal = document.getElementById('attendance-ot-morning-input')?.value || '';
-                const afternoonVal = document.getElementById('attendance-ot-afternoon-input')?.value || '';
-
-                const fullOTs = fullVal.trim() ? fullVal.trim().split(/\s+/) : [];
-                const mornOTs = morningVal.trim() ? morningVal.trim().split(/\s+/) : [];
-                const aftOTs  = afternoonVal.trim() ? afternoonVal.trim().split(/\s+/) : [];
-
-                // Assign full-day leave OTs to people marked on full leave (in queue order)
-                const fullLeavePeople = selectedShift.queue.filter(e => shiftLeaves[e] === 'full');
-                fullLeavePeople.forEach((emp, i) => {
-                    if (fullOTs[i]) {
-                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
-                        empInlineOTMap[emp]['full'] = fullOTs[i];
-                    }
-                });
-
-                // Assign half-morning leave OTs
-                const halfMLeavePeople = selectedShift.queue.filter(e => shiftLeaves[e] === 'half-morning');
-                halfMLeavePeople.forEach((emp, i) => {
-                    if (mornOTs[i]) {
-                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
-                        empInlineOTMap[emp]['half-morning'] = mornOTs[i];
-                    }
-                });
-
-                // Assign half-afternoon leave OTs
-                const halfALeavePeople = selectedShift.queue.filter(e => shiftLeaves[e] === 'half-afternoon');
-                halfALeavePeople.forEach((emp, i) => {
-                    if (aftOTs[i]) {
-                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
-                        empInlineOTMap[emp]['half-afternoon'] = aftOTs[i];
-                    }
-                });
-            } else {
-                // A+N leave OTs
-                const otAVal = document.getElementById('attendance-ot-a-input')?.value || '';
-                const otNVal = document.getElementById('attendance-ot-n-input')?.value || '';
-
-                const aOTs = otAVal.trim() ? otAVal.trim().split(/\s+/) : [];
-                const nOTs = otNVal.trim() ? otNVal.trim().split(/\s+/) : [];
-
-                // For A+N, people on leave (regardless of A/N shift) may have OT
-                const leavePeople = selectedShift.queue.filter(e => {
-                    const st = parseAnState(shiftLeaves[e]);
-                    return st.onLeave;
-                });
-
-                // Simple sequential assignment (A leave first then N, or mixed)
-                // We assign A-suffixed first to A+leave people, etc. Best effort.
-                let aIdx = 0, nIdx = 0;
-                leavePeople.forEach(emp => {
-                    const st = parseAnState(shiftLeaves[emp]);
-                    if (st.shift === 'A' && aOTs[aIdx]) {
-                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
-                        empInlineOTMap[emp]['an-leave-a'] = aOTs[aIdx++];
-                    } else if (st.shift === 'N' && nOTs[nIdx]) {
-                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
-                        empInlineOTMap[emp]['an-leave-n'] = nOTs[nIdx++];
-                    } else if (aOTs[aIdx]) {
-                        if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
-                        empInlineOTMap[emp]['an-leave'] = aOTs[aIdx++];
-                    }
-                });
-            }
-
-            // Update copy text and render interactive buttons
             updateLineCopyText();
             renderAttendanceControls();
-            // Restore inline OT values into hidden inputs after re-render
-            syncInlineOTsToHiddenInputs();
-            syncAnInlineOTsToHiddenInputs();
-
             onLineResultsChange();
+            renderAttendanceControls();
         }
 
         function updateLineCopyText() {
@@ -1796,8 +1817,8 @@
                                 <input type="text"
                                     class="form-input ot-inline"
                                     placeholder="${activeOTSlot.label}"
-                                    value="${document.getElementById(activeOTSlot.id)?.value || ''}"
-                                    oninput="document.getElementById('${activeOTSlot.id}').value=this.value.trim().toUpperCase(); updateCombinedOTs();">
+                                    value="${getInlineOTValue(emp, leaveType)}"
+                                    oninput="setInlineOT('${emp}', '${leaveType}', this.value)">
                             ` : '';
                             
                             row.classList.add('supervisor');
@@ -1827,8 +1848,8 @@
                                 <input type="text"
                                     class="form-input ot-inline"
                                     placeholder="OT แทน W/S N"
-                                    value="${document.getElementById('attendance-ws-n-ot-input')?.value || ''}"
-                                    oninput="document.getElementById('attendance-ws-n-ot-input').value=this.value.trim().toUpperCase(); updateCombinedOTs();">
+                                    value="${getInlineOTValue(emp, 'full')}"
+                                    oninput="setInlineOT('${emp}', 'full', this.value)">
                             ` : '';
                             
                             row.classList.add('supervisor');
@@ -1946,13 +1967,37 @@
             }
         }
 
+        function pruneInlineOTForLeaveState(emp, leaveState) {
+            if (!empInlineOTMap[emp]) return;
+            const validKeysByState = {
+                'active': [],
+                'full': ['full', 'an-leave', 'an-leave-a', 'an-leave-n'],
+                'half-morning': ['half-morning'],
+                'half-afternoon': ['half-afternoon'],
+                'A': ['an-leave-a'],
+                'N': ['an-leave-n'],
+                'A+leave': ['an-leave-a'],
+                'N+leave': ['an-leave-n'],
+            };
+            const validKeys = validKeysByState[leaveState] || [leaveState];
+            Object.keys(empInlineOTMap[emp]).forEach(key => {
+                if (!validKeys.includes(key)) delete empInlineOTMap[emp][key];
+            });
+            if (Object.keys(empInlineOTMap[emp]).length === 0) delete empInlineOTMap[emp];
+        }
+
         function changeShiftLeave(emp, value) {
             if (selectedShift && selectedShift.shift_type === 'A+N') {
                 const wsInitials = (selectedShift.supervisor || '').match(/[A-Z]{2}/g) || [];
                 if (wsInitials.includes(emp)) {
                     // W/S supervisor: simple toggle
-                    if (value === 'active') delete shiftLeaves[emp];
-                    else shiftLeaves[emp] = value;
+                    if (value === 'active') {
+                        delete shiftLeaves[emp];
+                        delete empInlineOTMap[emp];
+                    } else {
+                        pruneInlineOTForLeaveState(emp, value);
+                        shiftLeaves[emp] = value;
+                    }
                 } else {
                     // Regular queue employee: composite multi-select state
                     const st = parseAnState(shiftLeaves[emp]);
@@ -1979,15 +2024,21 @@
                         shiftLeaves[emp] = 'full';
                     } else if (value === 'active') {
                         delete shiftLeaves[emp];
+                        delete empInlineOTMap[emp];
                     }
+                    if (shiftLeaves[emp]) pruneInlineOTForLeaveState(emp, shiftLeaves[emp]);
                 }
             } else {
                 if (value === 'active') {
                     delete shiftLeaves[emp];
+                    delete empInlineOTMap[emp];
                 } else {
+                    pruneInlineOTForLeaveState(emp, value);
                     shiftLeaves[emp] = value;
                 }
             }
+            syncInlineOTsToHiddenInputs();
+            updateCombinedOTs();
             updateLineCopyText();
             renderAttendanceControls();
             onLineResultsChange();
@@ -1999,10 +2050,6 @@
                 .then(() => showToast("คัดลอกข้อความสำหรับ Line เรียบร้อยแล้ว", "success"))
                 .catch(() => showToast("ไม่สามารถคัดลอกข้อความได้", "error"));
         }
-
-        // Per-employee inline OT map: { empName: { leaveType: 'INITIALS' } }
-        // Used by regular queue employees (M8/A14 shift) to record who covers them
-        const empInlineOTMap = {};
 
         function getInlineOTValue(emp, leaveType) {
             return (empInlineOTMap[emp] && empInlineOTMap[emp][leaveType]) || '';
@@ -2023,19 +2070,56 @@
 
         function syncInlineOTsToHiddenInputs() {
             if (!selectedShift) return;
-            // Gather all values per leave type bucket
+
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            const svParts = (selectedShift.supervisor || '').split(/[\/-]/).map(s => s.trim().toUpperCase());
             const fullList = [], morningList = [], afternoonList = [];
+            const aList = [], nList = [], defaultList = [];
+            const wsM8 = { full: '', morning: '', afternoon: '' };
+            const wsA14 = { full: '', morning: '', afternoon: '' };
+            const wsN = { full: '' };
+
             Object.entries(empInlineOTMap).forEach(([emp, typeMap]) => {
-                if (typeMap['full'])           fullList.push(typeMap['full']);
-                if (typeMap['half-morning'])   morningList.push(typeMap['half-morning']);
+                if (isMorning && emp === svParts[0]) {
+                    if (typeMap['full']) wsM8.full = typeMap['full'];
+                    if (typeMap['half-morning']) wsM8.morning = typeMap['half-morning'];
+                    if (typeMap['half-afternoon']) wsM8.afternoon = typeMap['half-afternoon'];
+                    return;
+                }
+                if (isMorning && svParts.length >= 2 && emp === svParts[1]) {
+                    if (typeMap['full']) wsA14.full = typeMap['full'];
+                    if (typeMap['half-morning']) wsA14.morning = typeMap['half-morning'];
+                    if (typeMap['half-afternoon']) wsA14.afternoon = typeMap['half-afternoon'];
+                    return;
+                }
+                if (!isMorning && emp === svParts[0]) {
+                    if (typeMap['full']) wsN.full = typeMap['full'];
+                    return;
+                }
+                if (typeMap['an-leave-a']) aList.push(typeMap['an-leave-a']);
+                if (typeMap['an-leave-n']) nList.push(typeMap['an-leave-n']);
+                if (typeMap['an-leave']) defaultList.push(typeMap['an-leave']);
+                if (typeMap['full']) fullList.push(typeMap['full']);
+                if (typeMap['half-morning']) morningList.push(typeMap['half-morning']);
                 if (typeMap['half-afternoon']) afternoonList.push(typeMap['half-afternoon']);
             });
-            const otInput = document.getElementById('attendance-ot-input');
-            const otMorning = document.getElementById('attendance-ot-morning-input');
-            const otAfternoon = document.getElementById('attendance-ot-afternoon-input');
-            if (otInput) otInput.value = fullList.join(' ');
-            if (otMorning) otMorning.value = morningList.join(' ');
-            if (otAfternoon) otAfternoon.value = afternoonList.join(' ');
+
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+            setVal('attendance-ot-input', fullList.join(' '));
+            setVal('attendance-ot-morning-input', morningList.join(' '));
+            setVal('attendance-ot-afternoon-input', afternoonList.join(' '));
+            setVal('attendance-ws-m8-ot-input', wsM8.full);
+            setVal('attendance-ws-m8-morning-ot-input', wsM8.morning);
+            setVal('attendance-ws-m8-afternoon-ot-input', wsM8.afternoon);
+            setVal('attendance-ws-a14-ot-input', wsA14.full);
+            setVal('attendance-ws-a14-morning-ot-input', wsA14.morning);
+            setVal('attendance-ws-a14-afternoon-ot-input', wsA14.afternoon);
+            setVal('attendance-ws-n-ot-input', wsN.full);
+            setVal('attendance-ot-a-input', [...aList, ...defaultList].join(' '));
+            setVal('attendance-ot-n-input', nList.join(' '));
         }
 
         function setAnInlineOT(emp, leaveKey, targetInputId, rawValue) {
@@ -2052,18 +2136,7 @@
         }
 
         function syncAnInlineOTsToHiddenInputs() {
-            if (!selectedShift) return;
-            const aList = [], nList = [], defaultList = [];
-            Object.entries(empInlineOTMap).forEach(([emp, typeMap]) => {
-                if (typeMap['an-leave-a']) aList.push(typeMap['an-leave-a']);
-                if (typeMap['an-leave-n']) nList.push(typeMap['an-leave-n']);
-                if (typeMap['an-leave'])   defaultList.push(typeMap['an-leave']);
-            });
-            const otAInput = document.getElementById('attendance-ot-a-input');
-            const otNInput = document.getElementById('attendance-ot-n-input');
-            // merge 'an-leave' (no shift selected) into A list as fallback
-            if (otAInput) otAInput.value = [...aList, ...defaultList].join(' ');
-            if (otNInput) otNInput.value = nList.join(' ');
+            syncInlineOTsToHiddenInputs();
         }
 
         function updateCombinedOTs() {
@@ -2422,8 +2495,9 @@
 
             // Sync OT list and controls
             syncShiftOTsFromSelections();
-            syncOTInputsFromShiftOTs();
+            syncOTInputsFromState();
             updateLineCopyText();
+            renderAttendanceControls();
 
             // Update UI Checklist and Grid Map
             updateShiftRoomParserStatus();
@@ -2648,7 +2722,7 @@
                     const cleanOt = getCleanInitials(ot);
                     return cleanOt !== cleanNewVal;
                 });
-                syncOTInputsFromShiftOTs();
+                syncOTInputsFromState();
                 updateLineCopyText();
             }
             
@@ -2720,8 +2794,9 @@
             
             // Sync OT list and controls
             syncShiftOTsFromSelections();
-            syncOTInputsFromShiftOTs();
+            syncOTInputsFromState();
             updateLineCopyText();
+            renderAttendanceControls();
             
             // 3. Re-run checklist status, preview grid, and save validation
             updateShiftRoomParserStatus();
@@ -2760,6 +2835,9 @@
             updateCombinedOTs();
 
             showLoading(true);
+            syncInlineOTsToHiddenInputs();
+            updateCombinedOTs();
+
             const expected = getExpectedQueue();
             const isCompleted = (expected.length > 0 && expected.every(emp => parsedChoices[emp] && parsedChoices[emp].trim() !== '')) ? 1 : 0;
 
@@ -2767,6 +2845,7 @@
                 selections: parsedChoices,
                 leaves: shiftLeaves,
                 ots: shiftOTs,
+                ot_replacements: collectOTReplacementsPayload(),
                 is_completed: isCompleted
             };
 

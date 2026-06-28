@@ -78,6 +78,8 @@ def init_db():
         cursor.execute("ALTER TABLE shifts ADD COLUMN ots TEXT DEFAULT '[]'")
     if 'custom_log' not in columns:
         cursor.execute("ALTER TABLE shifts ADD COLUMN custom_log TEXT DEFAULT '[]'")
+    if 'ot_replacements' not in columns:
+        cursor.execute("ALTER TABLE shifts ADD COLUMN ot_replacements TEXT DEFAULT '{}'")
         
     # 2. Create template_logs table
     cursor.execute('''
@@ -358,6 +360,12 @@ def get_shifts():
         except:
             ots = []
 
+        ot_replacements_val = r["ot_replacements"] if "ot_replacements" in r.keys() else "{}"
+        try:
+            ot_replacements = json.loads(ot_replacements_val) if ot_replacements_val else {}
+        except:
+            ot_replacements = {}
+
         shifts.append({
             "id": r["id"],
             "date": r["date"],
@@ -368,6 +376,7 @@ def get_shifts():
             "selections": json.loads(r["selections"]),
             "leaves": leaves,
             "ots": ots,
+            "ot_replacements": ot_replacements,
             "is_completed": r["is_completed"]
         })
     return jsonify({"shifts": shifts})
@@ -464,14 +473,19 @@ def save_shift_selections(id):
     is_completed = data.get('is_completed', 1)
     leaves = data.get('leaves', [])
     ots = data.get('ots', [])
+    ot_replacements = data.get('ot_replacements', {})
 
     conn = get_db()
     cursor = conn.cursor()
     try:
-        # Check if table has leaves and ots columns
         cursor.execute("PRAGMA table_info(shifts)")
         columns = [row[1] for row in cursor.fetchall()]
-        if 'leaves' in columns and 'ots' in columns:
+        if 'ot_replacements' in columns and 'leaves' in columns and 'ots' in columns:
+            cursor.execute(
+                "UPDATE shifts SET selections = ?, is_completed = ?, leaves = ?, ots = ?, ot_replacements = ? WHERE id = ?",
+                (json.dumps(selections), is_completed, json.dumps(leaves), json.dumps(ots), json.dumps(ot_replacements), id)
+            )
+        elif 'leaves' in columns and 'ots' in columns:
             cursor.execute(
                 "UPDATE shifts SET selections = ?, is_completed = ?, leaves = ?, ots = ? WHERE id = ?",
                 (json.dumps(selections), is_completed, json.dumps(leaves), json.dumps(ots), id)
