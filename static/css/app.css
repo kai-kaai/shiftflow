@@ -36,6 +36,8 @@
     --team-purple-soft: #EDE9FE;
     --team-green: #10B981;
     --team-green-soft: #D1FAE5;
+    --team-gray: #6B7280;
+    --team-gray-soft: #F3F4F6;
 
     --font-sans: 'Inter', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -621,6 +623,7 @@ header.app-header p {
 
 .shift-card.team-purple { --card-team: var(--team-purple); }
 .shift-card.team-green { --card-team: var(--team-green); }
+.shift-card.team-gray { --card-team: var(--team-gray); }
 .shift-card.team-neutral { --card-team: var(--text-muted); }
 
 .shift-card:hover {
@@ -1048,6 +1051,16 @@ header.app-header p {
     background-color: var(--team-green-soft);
     color: #047857;
     border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.team-helper.gray {
+    background-color: var(--team-gray-soft);
+    color: #374151;
+    border: 1px solid rgba(107, 114, 128, 0.25);
+}
+
+.team-name-gray {
+    color: var(--team-gray);
 }
 
 .team-helper.off-day {

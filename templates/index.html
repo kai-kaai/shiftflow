@@ -254,6 +254,7 @@
         <div class="spinner"></div>
     </div>
 
+    <script src="{{ url_for('static', filename='js/team_schedule.js') }}"></script>
     <!-- Interactive Workspace logic -->
     <script>
         let roster = [];
@@ -420,13 +421,8 @@
             } else if (tabName === 'shiftroom') {
                 title.innerText = `ห้องจัดเวรประจำวันที่ ${selectedShift ? selectedShift.date_display : ''}`;
                 if (selectedShift) {
-                    const team = getTeamForDate(selectedShift.date, selectedShift.shift_type);
-                    let teamLabel = '';
-                    if (team === 'purple') {
-                        teamLabel = ' | 🟣 ทีมสีม่วง';
-                    } else if (team === 'green') {
-                        teamLabel = ' | 🟢 ทีมสีเขียว';
-                    }
+                    const teamDisplay = getTeamDisplay(getTeamForDate(selectedShift.date, selectedShift.shift_type));
+                    const teamLabel = teamDisplay ? teamDisplay.inlineLabel : '';
                     subtitle.innerText = `กะ${selectedShift.shift_type === 'M8/A14' ? 'เช้า (M8/A14)' : 'บ่ายดึก (A+N)'}${teamLabel} | Supervisor: ${selectedShift.supervisor || 'ไม่ได้ระบุ'}`;
                 } else {
                     subtitle.innerText = 'จัดตำแหน่งของพนักงานในกะ';
@@ -492,16 +488,9 @@
                 const isCompleted = shift.is_completed === 1;
                 const queueCount = shift.queue ? shift.queue.length : 0;
 
-                const team = getTeamForDate(shift.date, shift.shift_type);
-                let teamLabel = '';
-                let teamClass = 'team-neutral';
-                if (team === 'purple') {
-                    teamClass = 'team-purple';
-                    teamLabel = 'ทีมม่วง';
-                } else if (team === 'green') {
-                    teamClass = 'team-green';
-                    teamLabel = 'ทีมเขียว';
-                }
+                const teamDisplay = getTeamDisplay(getTeamForDate(shift.date, shift.shift_type));
+                const teamClass = teamDisplay ? teamDisplay.cardClass : 'team-neutral';
+                const teamLabel = teamDisplay ? teamDisplay.cardLabel : '';
 
                 card.className = `shift-card ${cardClass} ${teamClass}`;
 
@@ -1399,13 +1388,8 @@
             if (navigate) switchTab('shiftroom');
             
             // Update shift room headers
-            const team = getTeamForDate(shift.date, shift.shift_type);
-            let teamLabel = '';
-            if (team === 'purple') {
-                teamLabel = ' | 🟣 ทีมสีม่วง';
-            } else if (team === 'green') {
-                teamLabel = ' | 🟢 ทีมสีเขียว';
-            }
+            const teamDisplay = getTeamDisplay(getTeamForDate(shift.date, shift.shift_type));
+            const teamLabel = teamDisplay ? teamDisplay.inlineLabel : '';
             document.getElementById('page-title').innerText = `ห้องจัดเวรประจำวันที่ ${shift.date_display}`;
             document.getElementById('page-subtitle').innerText = `กะ${shift.shift_type === 'M8/A14' ? 'เช้า (M8/A14)' : 'บ่ายดึก (A+N)'}${teamLabel} | Supervisor: ${shift.supervisor || 'ไม่ได้ระบุ'}`;
 
@@ -2868,29 +2852,7 @@
             });
         }
 
-        // Modals Management
-        function getTeamForDate(dateStr, shiftType) {
-            if (!dateStr || !shiftType) return null;
-            const parts = dateStr.split('-');
-            if (parts.length < 3) return null;
-            
-            // Create local dates (safe from timezone shifting)
-            const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-            const basePurple = new Date(2026, 5, 5); // June 5, 2026 is Purple M8/A14
-            
-            const diffTime = date.getTime() - basePurple.getTime();
-            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-            
-            let remainder = diffDays % 8;
-            if (remainder < 0) remainder += 8;
-            
-            if (remainder === 0 && shiftType === 'M8/A14') return 'purple';
-            if (remainder === 2 && shiftType === 'A+N') return 'purple';
-            if (remainder === 1 && shiftType === 'M8/A14') return 'green';
-            if (remainder === 3 && shiftType === 'A+N') return 'green';
-            
-            return null;
-        }
+        // Modals Management — team logic: static/js/team_schedule.js (see docs/ADD_TEAM.md)
 
         function getSuggestedQueue(targetDate = null, targetShiftType = null) {
             // All employees in the database are considered available (no Active/Inactive distinction anymore)
@@ -2946,16 +2908,13 @@
                 return;
             }
             
-            const team = getTeamForDate(dateVal, typeVal);
+            const teamDisplay = getTeamDisplay(getTeamForDate(dateVal, typeVal));
             helperDiv.style.display = 'flex';
             
             helperDiv.className = 'team-helper';
-            if (team === 'purple') {
-                helperDiv.classList.add('purple');
-                helperDiv.innerHTML = '🟣 ทีมที่ปฏิบัติหน้าที่ตามเงื่อนไข: <strong>ทีมสีม่วง</strong>';
-            } else if (team === 'green') {
-                helperDiv.classList.add('green');
-                helperDiv.innerHTML = '🟢 ทีมที่ปฏิบัติหน้าที่ตามเงื่อนไข: <strong>ทีมสีเขียว</strong>';
+            if (teamDisplay) {
+                helperDiv.classList.add(teamDisplay.helperClass);
+                helperDiv.innerHTML = teamDisplay.helperHtml;
             } else {
                 helperDiv.classList.add('off-day');
                 helperDiv.innerHTML = '❌ ไม่อยู่ในเงื่อนไขรอบเวรทำงานตามปฏิทิน (คาดว่าเป็นวันพัก/วันหยุด)';
@@ -2988,8 +2947,8 @@
             }
             
             if (refShift) {
-                const refTeam = getTeamForDate(refShift.date, refShift.shift_type);
-                const refTeamLabel = refTeam === 'purple' ? '🟣 ทีมสีม่วง' : (refTeam === 'green' ? '🟢 ทีมสีเขียว' : 'ทั่วไป');
+                const refTeamDisplay = getTeamDisplay(getTeamForDate(refShift.date, refShift.shift_type));
+                const refTeamLabel = refTeamDisplay ? refTeamDisplay.refLabel : 'ทั่วไป';
                 
                 refDetails.innerHTML = `
                     <div>วันที่: <strong>${refShift.date_display}</strong></div>
