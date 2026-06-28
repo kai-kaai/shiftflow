@@ -2063,7 +2063,7 @@
             } else {
                 delete empInlineOTMap[emp][leaveType];
             }
-            // Rebuild hidden OT inputs from empInlineOTMap
+            // Sync hidden inputs + Line copy text; defer status grid update until save
             syncInlineOTsToHiddenInputs();
             updateCombinedOTs();
         }
@@ -2130,7 +2130,7 @@
             } else {
                 delete empInlineOTMap[emp][leaveKey];
             }
-            // Rebuild the target hidden input from all employees using the same target
+            // Sync hidden inputs + Line copy text; defer status grid update until save
             syncAnInlineOTsToHiddenInputs();
             updateCombinedOTs();
         }
@@ -2228,7 +2228,6 @@
             }
             
             updateLineCopyText();
-            onLineResultsChange();
         }
 
         function syncShiftOTsFromSelections() {
@@ -2837,6 +2836,7 @@
             showLoading(true);
             syncInlineOTsToHiddenInputs();
             updateCombinedOTs();
+            onLineResultsChange();
 
             const expected = getExpectedQueue();
             const isCompleted = (expected.length > 0 && expected.every(emp => parsedChoices[emp] && parsedChoices[emp].trim() !== '')) ? 1 : 0;
