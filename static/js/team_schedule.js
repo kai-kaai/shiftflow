@@ -170,3 +170,94 @@ function buildTeamConfigEntry(options) {
     const conflicts = findTeamScheduleConflicts(entry);
     return { entry, conflicts, isValid: conflicts.length === 0 };
 }
+
+/**
+ * รายการวันทำงาน (คอลัมน์) ของทีมในเดือนที่กำหนด
+ * เรียงตามวันที่ แล้วกะเช้า (M8/A14) ก่อนบ่ายดึก (A+N)
+ */
+function listTeamWorkColumns(teamId, year, month) {
+    if (!teamId || !year || !month) return [];
+
+    const y = parseInt(year, 10);
+    const m = parseInt(month, 10);
+    if (!y || !m || m < 1 || m > 12) return [];
+
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const columns = [];
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+        const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        ['M8/A14', 'A+N'].forEach(shiftType => {
+            if (getTeamForDate(dateStr, shiftType) === teamId) {
+                columns.push({
+                    date: dateStr,
+                    shift_type: shiftType,
+                    queue: [],
+                    supervisor: ''
+                });
+            }
+        });
+    }
+    return columns;
+}
+
+function formatYearMonth(year, month) {
+    return `${parseInt(year, 10)}-${String(parseInt(month, 10)).padStart(2, '0')}`;
+}
+
+function formatQueueColumnHeader(dateStr, shiftType) {
+    const date = parseLocalDate(dateStr);
+    if (!date) {
+        return { dateLine: dateStr || '', shiftLine: shiftType || '' };
+    }
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = date.getDate();
+    const mon = months[date.getMonth()];
+    const year = date.getFullYear();
+    return {
+        dateLine: `${day}-${mon}-${year}`,
+        shiftLine: shiftType || ''
+    };
+}
+
+/** หมุนคิวซ้าย 1 ตำแหน่ง (คนแรกไปท้าย) */
+function rotateQueueLeft1(queue) {
+    if (!queue || queue.length === 0) return [];
+    const next = queue.slice(1);
+    next.push(queue[0]);
+    return next;
+}
+
+/**
+ * รวมโครงคอลัมน์จากปฏิทินทีม กับข้อมูลที่บันทึกไว้
+ * โครงจากปฏิทินเป็น source of truth ว่ามีกี่วันทำงาน
+ */
+function mergeTeamWorkColumns(skeletonColumns, savedColumns) {
+    const savedMap = new Map();
+    (savedColumns || []).forEach(col => {
+        if (!col || !col.date || !col.shift_type) return;
+        savedMap.set(`${col.date}|${col.shift_type}`, col);
+    });
+
+    return (skeletonColumns || []).map(skel => {
+        const key = `${skel.date}|${skel.shift_type}`;
+        const saved = savedMap.get(key);
+        if (!saved) {
+            return {
+                date: skel.date,
+                shift_type: skel.shift_type,
+                queue: [],
+                supervisor: ''
+            };
+        }
+        const queue = Array.isArray(saved.queue)
+            ? saved.queue.map(q => String(q).trim().toUpperCase()).filter(Boolean)
+            : [];
+        return {
+            date: skel.date,
+            shift_type: skel.shift_type,
+            queue,
+            supervisor: saved.supervisor || ''
+        };
+    });
+}

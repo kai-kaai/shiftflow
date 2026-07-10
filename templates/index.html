@@ -35,6 +35,12 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a id="nav-queueroom" class="nav-link" onclick="switchTab('queueroom')">
+                    <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+                    <span>ห้องจัดคิว</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a id="nav-shiftroom" class="nav-link" style="display: none;" onclick="switchTab('shiftroom')">
                     <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                     <span>ห้องจัดเวรปัจจุบัน</span>
@@ -104,7 +110,44 @@
             </div>
         </div>
 
-        <!-- Tab 2: Shift Room (Scheduling Room) -->
+        <!-- Tab 2: Queue Room (ห้องจัดคิว) -->
+        <div id="tab-queueroom" class="tab-content">
+            <div class="queue-room">
+                <div class="queue-room-toolbar">
+                    <div class="queue-room-month-nav">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="shiftQueueRoomMonth(-1)" title="เดือนก่อน">◀</button>
+                        <span id="queue-room-month-label" class="queue-room-month-label">—</span>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="shiftQueueRoomMonth(1)" title="เดือนถัดไป">▶</button>
+                    </div>
+                    <div class="queue-room-team-tabs" id="queue-room-team-tabs">
+                        <!-- Filled dynamically from TEAM_SCHEDULE -->
+                    </div>
+                    <div class="queue-room-actions">
+                        <button type="button" class="btn btn-secondary" onclick="runQueueRoomQue()" title="ใช้คอลัมน์แรกหมุนสร้างคิววันทำงานที่เหลือ">
+                            ▶ Run Que
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="saveQueueRoomPlan()">
+                            💾 บันทึกแผนเดือนนี้
+                        </button>
+                    </div>
+                </div>
+
+                <p class="queue-room-hint" id="queue-room-hint">
+                    ใส่ลำดับคิวใน <strong>คอลัมน์แรก</strong> (วันทำงานแรกของเดือน) แล้วกด <strong>Run Que</strong> เพื่อหมุนซ้าย 1 คนสร้างคอลัมน์ที่เหลือ — แก้ไขทีหลังได้ แล้วกดบันทึก
+                </p>
+                <p class="queue-room-meta" id="queue-room-meta"></p>
+
+                <div class="queue-room-table-wrap" id="queue-room-table-wrap">
+                    <div class="queue-room-empty" id="queue-room-empty">ไม่มีวันทำงานของทีมนี้ในเดือนที่เลือก</div>
+                    <table class="queue-room-table" id="queue-room-table" style="display: none;">
+                        <thead id="queue-room-thead"></thead>
+                        <tbody id="queue-room-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Shift Room (Scheduling Room) -->
         <div id="tab-shiftroom" class="tab-content">
             <div class="workspace" id="workspace-container">
                 <!-- Dynamic workspaces injected -->
@@ -119,6 +162,10 @@
         <button type="button" id="mobile-nav-dashboard" class="mobile-nav-item active" onclick="switchTab('dashboard')">
             <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14H5v-2h5v2zm0-4H5v-2h5v2zm0-4H5V5h5v2zm9 8h-7v-2h7v2zm0-4h-7v-2h7v2zm0-4h-7V5h7v2z"/></svg>
             หน้าหลัก
+        </button>
+        <button type="button" id="mobile-nav-queueroom" class="mobile-nav-item" onclick="switchTab('queueroom')">
+            <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+            ห้องจัดคิว
         </button>
         <button type="button" id="mobile-nav-shiftroom" class="mobile-nav-item hidden-nav" onclick="switchTab('shiftroom')">
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
@@ -161,8 +208,9 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label">ลำดับคิวพนักงาน (ระบบแนะนำคิวให้อัตโนมัติ - พิมพ์ชื่อย่อใหม่เพิ่มได้ ระบบจะบันทึกลงฐานข้อมูลอัตโนมัติ บรรทัดละคน)</label>
+                        <label class="form-label">ลำดับคิวพนักงาน (ระบบแนะนำคิวให้อัตโนมัติ - แก้ไขได้ก่อนสร้าง · บรรทัดละคน · ชื่อใหม่บันทึกลงฐานข้อมูลอัตโนมัติ)</label>
                         <textarea id="shift-queue-input" class="form-input mono" style="min-height: 250px;" placeholder="พิมพ์รายชื่อพนักงาน บรรทัดละคน..."></textarea>
+                        <div id="shift-queue-source-hint" class="queue-source-hint"></div>
                     </div>
                 </div>
 
@@ -260,6 +308,19 @@
         let roster = [];
         let shifts = [];
         let activeTab = 'dashboard';
+
+        // ห้องจัดคิว state
+        const nowForQueueRoom = new Date();
+        let queueRoomYear = nowForQueueRoom.getFullYear();
+        let queueRoomMonth = nowForQueueRoom.getMonth() + 1;
+        let queueRoomTeamId = (typeof TEAM_SCHEDULE !== 'undefined' && TEAM_SCHEDULE.teams[0])
+            ? TEAM_SCHEDULE.teams[0].id
+            : 'purple';
+        let queueRoomColumns = [];
+        let queueRoomUpdatedAt = null;
+        let queueRoomDirty = false;
+        // Cache: `${teamId}:${YYYY-MM}` → columns array (saved plan, may be empty)
+        const teamMonthQueuePlans = {};
         
         let selectedShift = null;
         let currentLogShiftId = null;
@@ -418,6 +479,10 @@
             if (tabName === 'dashboard') {
                 title.innerText = 'ตารางเวรทั้งหมด';
                 subtitle.innerText = 'ดูประวัติเวรและสร้างคิวจัดเวรพนักงาน';
+            } else if (tabName === 'queueroom') {
+                title.innerText = 'ห้องจัดคิว';
+                subtitle.innerText = 'วางแผนลำดับคิวทั้งเดือนแยกตามทีมสี (suggestion สำหรับสร้างเวร)';
+                initQueueRoomIfNeeded();
             } else if (tabName === 'shiftroom') {
                 title.innerText = `ห้องจัดเวรประจำวันที่ ${selectedShift ? selectedShift.date_display : ''}`;
                 if (selectedShift) {
@@ -428,6 +493,305 @@
                     subtitle.innerText = 'จัดตำแหน่งของพนักงานในกะ';
                 }
             }
+        }
+
+        // ─── ห้องจัดคิว ───
+        const THAI_MONTHS_FULL = [
+            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+        ];
+
+        function getQueueRoomYearMonth() {
+            return formatYearMonth(queueRoomYear, queueRoomMonth);
+        }
+
+        function initQueueRoomIfNeeded() {
+            renderQueueRoomTeamTabs();
+            loadQueueRoomPlan();
+        }
+
+        function renderQueueRoomTeamTabs() {
+            const container = document.getElementById('queue-room-team-tabs');
+            if (!container || typeof TEAM_SCHEDULE === 'undefined') return;
+            container.innerHTML = '';
+            TEAM_SCHEDULE.teams.forEach(team => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `queue-room-team-tab ${team.cssClass}${team.id === queueRoomTeamId ? ' active' : ''}`;
+                btn.innerHTML = `${team.emoji} ${team.shortName}`;
+                btn.onclick = () => selectQueueRoomTeam(team.id);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectQueueRoomTeam(teamId) {
+            if (teamId === queueRoomTeamId) return;
+            if (queueRoomDirty && !confirm('มีการแก้ไขที่ยังไม่บันทึก ต้องการเปลี่ยนทีมโดยไม่บันทึกหรือไม่?')) {
+                return;
+            }
+            queueRoomTeamId = teamId;
+            queueRoomDirty = false;
+            renderQueueRoomTeamTabs();
+            loadQueueRoomPlan();
+        }
+
+        function shiftQueueRoomMonth(delta) {
+            if (queueRoomDirty && !confirm('มีการแก้ไขที่ยังไม่บันทึก ต้องการเปลี่ยนเดือนโดยไม่บันทึกหรือไม่?')) {
+                return;
+            }
+            queueRoomMonth += delta;
+            if (queueRoomMonth < 1) {
+                queueRoomMonth = 12;
+                queueRoomYear -= 1;
+            } else if (queueRoomMonth > 12) {
+                queueRoomMonth = 1;
+                queueRoomYear += 1;
+            }
+            queueRoomDirty = false;
+            loadQueueRoomPlan();
+        }
+
+        function updateQueueRoomMonthLabel() {
+            const el = document.getElementById('queue-room-month-label');
+            if (el) {
+                el.innerText = `${THAI_MONTHS_FULL[queueRoomMonth - 1]} ${queueRoomYear}`;
+            }
+        }
+
+        function planCacheKey(teamId, yearMonth) {
+            return `${teamId}:${yearMonth}`;
+        }
+
+        async function fetchTeamMonthPlan(teamId, yearMonth) {
+            const key = planCacheKey(teamId, yearMonth);
+            const res = await fetch(`/api/team-month-queues?team_id=${encodeURIComponent(teamId)}&year_month=${encodeURIComponent(yearMonth)}`);
+            if (!res.ok) throw new Error('โหลดแผนคิวไม่สำเร็จ');
+            const data = await res.json();
+            const columns = Array.isArray(data.columns) ? data.columns : [];
+            teamMonthQueuePlans[key] = columns;
+            return { columns, updated_at: data.updated_at || null };
+        }
+
+        async function ensureTeamMonthPlan(teamId, yearMonth) {
+            const key = planCacheKey(teamId, yearMonth);
+            if (Object.prototype.hasOwnProperty.call(teamMonthQueuePlans, key)) {
+                return teamMonthQueuePlans[key];
+            }
+            const result = await fetchTeamMonthPlan(teamId, yearMonth);
+            return result.columns;
+        }
+
+        async function loadQueueRoomPlan() {
+            updateQueueRoomMonthLabel();
+            const yearMonth = getQueueRoomYearMonth();
+            const skeleton = listTeamWorkColumns(queueRoomTeamId, queueRoomYear, queueRoomMonth);
+
+            showLoading(true);
+            try {
+                const { columns: saved, updated_at } = await fetchTeamMonthPlan(queueRoomTeamId, yearMonth);
+                queueRoomColumns = mergeTeamWorkColumns(skeleton, saved);
+                queueRoomUpdatedAt = updated_at;
+                queueRoomDirty = false;
+                renderQueueRoomTable();
+                updateQueueRoomMeta();
+            } catch (err) {
+                console.error(err);
+                showToast(err.message || 'โหลดห้องจัดคิวไม่สำเร็จ', 'error');
+                queueRoomColumns = mergeTeamWorkColumns(skeleton, []);
+                queueRoomUpdatedAt = null;
+                renderQueueRoomTable();
+                updateQueueRoomMeta();
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateQueueRoomMeta() {
+            const meta = document.getElementById('queue-room-meta');
+            if (!meta) return;
+            const team = getTeamDefinition(queueRoomTeamId);
+            const teamLabel = team ? `${team.emoji} ${team.name}` : queueRoomTeamId;
+            const colCount = queueRoomColumns.length;
+            const savedHint = queueRoomUpdatedAt
+                ? `บันทึกล่าสุด: ${queueRoomUpdatedAt}`
+                : 'ยังไม่เคยบันทึกแผนเดือนนี้';
+            const dirtyHint = queueRoomDirty ? ' · มีการแก้ไขที่ยังไม่บันทึก' : '';
+            meta.innerHTML = `${teamLabel} · ${colCount} คอลัมน์ (วันทำงาน) · ${savedHint}${dirtyHint}`;
+        }
+
+        function getQueueRoomRowCount() {
+            let maxLen = 13;
+            queueRoomColumns.forEach(col => {
+                if (col.queue && col.queue.length > maxLen) maxLen = col.queue.length;
+            });
+            // เผื่อแถวว่างให้พิมพ์เพิ่มในคอลัมน์แรก
+            return Math.max(maxLen, 13) + 2;
+        }
+
+        function renderQueueRoomTable() {
+            const table = document.getElementById('queue-room-table');
+            const empty = document.getElementById('queue-room-empty');
+            const thead = document.getElementById('queue-room-thead');
+            const tbody = document.getElementById('queue-room-tbody');
+            if (!table || !thead || !tbody) return;
+
+            const team = getTeamDefinition(queueRoomTeamId);
+            const teamClass = team ? team.cssClass : '';
+
+            if (!queueRoomColumns.length) {
+                table.style.display = 'none';
+                if (empty) empty.style.display = 'block';
+                return;
+            }
+
+            if (empty) empty.style.display = 'none';
+            table.style.display = 'table';
+            table.className = `queue-room-table team-${teamClass}`;
+
+            const headerCells = queueRoomColumns.map((col, idx) => {
+                const h = formatQueueColumnHeader(col.date, col.shift_type);
+                const firstClass = idx === 0 ? ' first-col' : '';
+                return `<th class="qr-col-head${firstClass}" data-col="${idx}">
+                    <div class="qr-head-date">${h.dateLine}</div>
+                    <div class="qr-head-shift">${h.shiftLine}</div>
+                    ${idx === 0 ? '<div class="qr-head-badge">ใส่คิวก่อน</div>' : ''}
+                </th>`;
+            }).join('');
+
+            thead.innerHTML = `<tr><th class="qr-row-num">#</th>${headerCells}</tr>`;
+
+            const rowCount = getQueueRoomRowCount();
+            let bodyHtml = '';
+            for (let r = 0; r < rowCount; r += 1) {
+                const cells = queueRoomColumns.map((col, cIdx) => {
+                    const val = (col.queue && col.queue[r]) ? col.queue[r] : '';
+                    const firstClass = cIdx === 0 ? ' first-col' : '';
+                    return `<td class="qr-cell${firstClass}">
+                        <input type="text" class="qr-input mono" maxlength="12"
+                            data-col="${cIdx}" data-row="${r}"
+                            value="${escapeHtmlAttr(val)}"
+                            oninput="onQueueRoomCellInput(${cIdx}, ${r}, this.value)"
+                            autocomplete="off" spellcheck="false">
+                    </td>`;
+                }).join('');
+                bodyHtml += `<tr><td class="qr-row-num">${r + 1}</td>${cells}</tr>`;
+            }
+            tbody.innerHTML = bodyHtml;
+        }
+
+        function escapeHtmlAttr(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function onQueueRoomCellInput(colIdx, rowIdx, value) {
+            if (!queueRoomColumns[colIdx]) return;
+            // Keep sparse by row index for display; compact on Run Que / Save via DOM
+            const cleaned = String(value || '').trim().toUpperCase();
+            const sparse = Array.isArray(queueRoomColumns[colIdx].queue)
+                ? queueRoomColumns[colIdx].queue.slice()
+                : [];
+            while (sparse.length <= rowIdx) sparse.push('');
+            sparse[rowIdx] = cleaned;
+            queueRoomColumns[colIdx].queue = sparse;
+            queueRoomDirty = true;
+            updateQueueRoomMeta();
+        }
+
+        function collectColumnQueueFromDom(colIdx) {
+            const inputs = document.querySelectorAll(`.qr-input[data-col="${colIdx}"]`);
+            const result = [];
+            inputs.forEach(input => {
+                const v = String(input.value || '').trim().toUpperCase();
+                if (v) result.push(v);
+            });
+            return result;
+        }
+
+        function syncQueueRoomColumnsFromDom() {
+            queueRoomColumns.forEach((col, idx) => {
+                col.queue = collectColumnQueueFromDom(idx);
+            });
+        }
+
+        function runQueueRoomQue() {
+            if (!queueRoomColumns.length) {
+                showToast('ไม่มีวันทำงานในเดือนนี้', 'warning');
+                return;
+            }
+            syncQueueRoomColumnsFromDom();
+            const base = queueRoomColumns[0].queue || [];
+            if (base.length === 0) {
+                showToast('กรุณาใส่ลำดับคิวในคอลัมน์แรกก่อน แล้วค่อยกด Run Que', 'warning');
+                return;
+            }
+
+            const hasLaterData = queueRoomColumns.slice(1).some(c => c.queue && c.queue.length > 0);
+            if (hasLaterData && !confirm('คอลัมน์วันทำงานที่เหลือมีข้อมูลอยู่แล้ว จะเขียนทับด้วยคิวที่หมุนจากคอลัมน์แรกหรือไม่?')) {
+                return;
+            }
+
+            let prev = base.slice();
+            for (let i = 1; i < queueRoomColumns.length; i += 1) {
+                prev = rotateQueueLeft1(prev);
+                queueRoomColumns[i].queue = prev.slice();
+            }
+            queueRoomDirty = true;
+            renderQueueRoomTable();
+            updateQueueRoomMeta();
+            showToast(`Run Que เสร็จแล้ว — สร้างคิว ${queueRoomColumns.length - 1} คอลัมน์ที่เหลือ`, 'success');
+        }
+
+        function saveQueueRoomPlan() {
+            if (!queueRoomColumns.length) {
+                showToast('ไม่มีวันทำงานให้บันทึก', 'warning');
+                return;
+            }
+            syncQueueRoomColumnsFromDom();
+
+            const yearMonth = getQueueRoomYearMonth();
+            const payload = {
+                team_id: queueRoomTeamId,
+                year_month: yearMonth,
+                columns: queueRoomColumns.map(col => ({
+                    date: col.date,
+                    shift_type: col.shift_type,
+                    queue: col.queue || [],
+                    supervisor: col.supervisor || ''
+                }))
+            };
+
+            showLoading(true);
+            fetch('/api/team-month-queues', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                teamMonthQueuePlans[planCacheKey(queueRoomTeamId, yearMonth)] = data.columns || payload.columns;
+                queueRoomUpdatedAt = data.updated_at || null;
+                queueRoomDirty = false;
+                // refresh roster in case new initials were added
+                return fetch('/api/employees').then(r => r.json()).then(empData => {
+                    roster = empData.employees || roster;
+                    updateStats();
+                });
+            })
+            .then(() => {
+                updateQueueRoomMeta();
+                showToast('บันทึกแผนคิวเดือนนี้เรียบร้อยแล้ว', 'success');
+            })
+            .catch(err => {
+                showToast(err.message || 'บันทึกไม่สำเร็จ', 'error');
+            })
+            .finally(() => {
+                showLoading(false);
+            });
         }
 
         // Shifts List Render
@@ -2854,48 +3218,109 @@
 
         // Modals Management — team logic: static/js/team_schedule.js (see docs/ADD_TEAM.md)
 
-        function getSuggestedQueue(targetDate = null, targetShiftType = null) {
-            // All employees in the database are considered available (no Active/Inactive distinction anymore)
+        function getSuggestedQueueFromLastShift(targetDate = null, targetShiftType = null) {
+            // Fallback เดิม: เวรล่าสุดทีมเดียวกัน + หมุนซ้าย 1
             const allEmps = roster.map(e => e.initials);
             if (allEmps.length === 0) return [];
-            
-            // Determine team of target shift
+
             const targetTeam = getTeamForDate(targetDate, targetShiftType);
-            
-            // Find the most recent shift of the SAME team
+
             let lastShift = null;
             if (targetTeam && shifts && shifts.length > 0) {
                 lastShift = shifts.find(s => getTeamForDate(s.date, s.shift_type) === targetTeam);
             }
-            
-            // Fallback to the most recent shift overall if no same-team shift exists in DB
+
             if (!lastShift && shifts && shifts.length > 0) {
                 lastShift = shifts[0];
             }
-            
+
             if (lastShift && lastShift.queue && lastShift.queue.length > 0) {
                 const baseQueue = [...lastShift.queue];
-                
-                // Shift left by 1 (the first person moves to the end of the rotation)
                 if (baseQueue.length > 0) {
                     const first = baseQueue.shift();
                     baseQueue.push(first);
                 }
-                
-                // Keep only employees that still exist in the current roster
+
                 let suggested = baseQueue.filter(emp => allEmps.includes(emp));
-                
-                // Fill up to 13 from the current roster if needed (new employees added via queue textarea will appear after next load)
                 allEmps.forEach(emp => {
                     if (suggested.length < 13 && !suggested.includes(emp)) {
                         suggested.push(emp);
                     }
                 });
-                
                 return suggested.slice(0, 13);
             }
-            // Fallback: take first 13 of employees
             return allEmps.slice(0, 13);
+        }
+
+        /** @deprecated use resolveSuggestedQueue — kept for callers expecting array only */
+        function getSuggestedQueue(targetDate = null, targetShiftType = null) {
+            return getSuggestedQueueFromLastShift(targetDate, targetShiftType);
+        }
+
+        function lookupQueueRoomColumn(columns, dateStr, shiftType) {
+            if (!columns || !dateStr || !shiftType) return null;
+            return columns.find(c => c.date === dateStr && c.shift_type === shiftType) || null;
+        }
+
+        async function resolveSuggestedQueue(targetDate = null, targetShiftType = null) {
+            const allEmps = roster.map(e => e.initials);
+            const targetTeam = getTeamForDate(targetDate, targetShiftType);
+            const teamDisplay = getTeamDisplay(targetTeam);
+
+            // 1) Suggestion จากห้องจัดคิว (คอลัมน์วัน/กะตรงกัน)
+            if (targetTeam && targetDate && targetShiftType) {
+                const yearMonth = String(targetDate).slice(0, 7);
+                try {
+                    const columns = await ensureTeamMonthPlan(targetTeam, yearMonth);
+                    const col = lookupQueueRoomColumn(columns, targetDate, targetShiftType);
+                    if (col && Array.isArray(col.queue) && col.queue.length > 0) {
+                        const teamLabel = teamDisplay ? teamDisplay.refLabel : targetTeam;
+                        const h = formatQueueColumnHeader(targetDate, targetShiftType);
+                        return {
+                            queue: col.queue.slice(),
+                            source: 'queueroom',
+                            hintHtml: `แนะนำจาก <strong>ห้องจัดคิว</strong> · ${teamLabel} · ${h.dateLine} ${h.shiftLine} <span class="hint-edit">(แก้ไขได้ก่อนสร้าง — ไม่กระทบห้องจัดคิว)</span>`
+                        };
+                    }
+                } catch (err) {
+                    console.warn('queue room lookup failed, using last-shift fallback', err);
+                }
+            }
+
+            // 2) Fallback เดิม
+            const queue = getSuggestedQueueFromLastShift(targetDate, targetShiftType);
+            if (targetTeam && shifts && shifts.some(s => getTeamForDate(s.date, s.shift_type) === targetTeam)) {
+                const teamLabel = teamDisplay ? teamDisplay.refLabel : targetTeam;
+                return {
+                    queue,
+                    source: 'lastshift',
+                    hintHtml: `แนะนำจาก <strong>เวรล่าสุดของทีม</strong> · ${teamLabel} (ยังไม่มีคิวในห้องจัดคิว) <span class="hint-edit">(แก้ไขได้)</span>`
+                };
+            }
+            if (queue.length > 0) {
+                return {
+                    queue,
+                    source: 'lastshift',
+                    hintHtml: `แนะนำจาก <strong>เวรล่าสุด / roster</strong> <span class="hint-edit">(แก้ไขได้)</span>`
+                };
+            }
+            return {
+                queue: allEmps.slice(0, 13),
+                source: 'roster',
+                hintHtml: `แนะนำจาก <strong>รายชื่อพนักงานในระบบ</strong> <span class="hint-edit">(แก้ไขได้)</span>`
+            };
+        }
+
+        function updateQueueSourceHint(result) {
+            const el = document.getElementById('shift-queue-source-hint');
+            if (!el) return;
+            if (!result || !result.hintHtml) {
+                el.innerHTML = '';
+                el.className = 'queue-source-hint';
+                return;
+            }
+            el.innerHTML = result.hintHtml;
+            el.className = `queue-source-hint source-${result.source || 'lastshift'}`;
         }
 
         function updateCreateShiftTeamHelper() {
@@ -2965,18 +3390,19 @@
             }
         }
 
-        function handleCreateShiftInputChanges() {
+        async function handleCreateShiftInputChanges() {
             const dateVal = document.getElementById('shift-date-input').value;
             const typeVal = document.getElementById('shift-type-input').value;
             
             updateCreateShiftTeamHelper();
             updateCreateShiftReferencePanel();
             
-            const suggested = getSuggestedQueue(dateVal, typeVal);
-            document.getElementById('shift-queue-input').value = suggested.join('\n');
+            const result = await resolveSuggestedQueue(dateVal, typeVal);
+            document.getElementById('shift-queue-input').value = result.queue.join('\n');
+            updateQueueSourceHint(result);
         }
 
-        function openCreateShiftModal() {
+        async function openCreateShiftModal() {
             let suggestedDate = new Date().toISOString().split('T')[0];
             let suggestedShiftType = 'M8/A14';
             
@@ -3009,15 +3435,12 @@
             document.getElementById('shift-type-input').value = suggestedShiftType;
             document.getElementById('shift-supervisor-input').value = '';
             
-            // Update team helper dynamically
             updateCreateShiftTeamHelper();
-            
-            // Populate Reference Panel dynamically based on the selected team
             updateCreateShiftReferencePanel();
             
-            // Get system suggestion and populate textarea (only 13 people) using the specific team's queue
-            const suggested = getSuggestedQueue(suggestedDate, suggestedShiftType);
-            document.getElementById('shift-queue-input').value = suggested.join('\n');
+            const result = await resolveSuggestedQueue(suggestedDate, suggestedShiftType);
+            document.getElementById('shift-queue-input').value = result.queue.join('\n');
+            updateQueueSourceHint(result);
             
             document.getElementById('create-shift-modal').classList.add('active');
         }

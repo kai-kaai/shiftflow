@@ -95,6 +95,18 @@ def init_db():
     if 'layout' not in template_columns:
         cursor.execute("ALTER TABLE template_logs ADD COLUMN layout TEXT DEFAULT '{}'")
 
+    # Team month queue plans (ห้องจัดคิว)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS team_month_queues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id TEXT NOT NULL,
+            year_month TEXT NOT NULL,
+            columns_json TEXT NOT NULL DEFAULT '[]',
+            updated_at TEXT,
+            UNIQUE(team_id, year_month)
+        )
+    ''')
+
     for shift_type, template_data in DEFAULT_LOG_TEMPLATES.items():
         layout_json = json.dumps(template_data)
         cursor.execute("SELECT layout FROM template_logs WHERE shift_type = ?", (shift_type,))
@@ -330,6 +342,157 @@ def get_employees():
 # Note: Employee management (add/edit/delete) is no longer exposed via dedicated UI.
 # New employees are automatically added when users enter new initials in the
 # "ลำดับคิวพนักงาน" field when creating a new shift.
+
+# 1b. Team month queue plans (ห้องจัดคิว)
+def _normalize_queue_columns(raw_columns):
+    """Normalize columns payload: list of {date, shift_type, queue, supervisor}."""
+    if not isinstance(raw_columns, list):
+        return []
+    normalized = []
+    for col in raw_columns:
+        if not isinstance(col, dict):
+            continue
+        date_str = str(col.get('date', '')).strip()
+        shift_type = str(col.get('shift_type', '')).strip()
+        if not date_str or not shift_type:
+            continue
+        raw_queue = col.get('queue') or []
+        if isinstance(raw_queue, str):
+            raw_queue = [line.strip() for line in raw_queue.splitlines()]
+        queue_list = [str(q).strip().upper() for q in raw_queue if str(q).strip()]
+        supervisor = str(col.get('supervisor', '') or '').strip()
+        normalized.append({
+            "date": date_str,
+            "shift_type": shift_type,
+            "queue": queue_list,
+            "supervisor": supervisor
+        })
+    return normalized
+
+
+@app.route('/api/team-month-queues', methods=['GET'])
+def get_team_month_queues():
+    team_id = (request.args.get('team_id') or '').strip()
+    year_month = (request.args.get('year_month') or '').strip()
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        if team_id and year_month:
+            cursor.execute(
+                "SELECT * FROM team_month_queues WHERE team_id = ? AND year_month = ?",
+                (team_id, year_month)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({
+                    "team_id": team_id,
+                    "year_month": year_month,
+                    "columns": [],
+                    "updated_at": None
+                })
+            try:
+                columns = json.loads(row["columns_json"] or "[]")
+            except Exception:
+                columns = []
+            return jsonify({
+                "team_id": row["team_id"],
+                "year_month": row["year_month"],
+                "columns": columns if isinstance(columns, list) else [],
+                "updated_at": row["updated_at"]
+            })
+
+        # Optional: all teams for a month, or all plans
+        if year_month:
+            cursor.execute(
+                "SELECT * FROM team_month_queues WHERE year_month = ? ORDER BY team_id ASC",
+                (year_month,)
+            )
+        else:
+            cursor.execute("SELECT * FROM team_month_queues ORDER BY year_month DESC, team_id ASC")
+
+        plans = []
+        for row in cursor.fetchall():
+            try:
+                columns = json.loads(row["columns_json"] or "[]")
+            except Exception:
+                columns = []
+            plans.append({
+                "team_id": row["team_id"],
+                "year_month": row["year_month"],
+                "columns": columns if isinstance(columns, list) else [],
+                "updated_at": row["updated_at"]
+            })
+        return jsonify({"plans": plans})
+    finally:
+        conn.close()
+
+
+@app.route('/api/team-month-queues', methods=['PUT'])
+def put_team_month_queues():
+    data = request.json or {}
+    team_id = str(data.get('team_id', '')).strip()
+    year_month = str(data.get('year_month', '')).strip()
+    raw_columns = data.get('columns')
+
+    if not team_id or not year_month:
+        return jsonify({"error": "ต้องระบุ team_id และ year_month"}), 400
+    if len(year_month) != 7 or year_month[4] != '-':
+        return jsonify({"error": "year_month ต้องเป็นรูปแบบ YYYY-MM"}), 400
+
+    columns = _normalize_queue_columns(raw_columns)
+    all_initials = []
+    for col in columns:
+        all_initials.extend(col["queue"])
+    ensure_employees_exist(all_initials)
+
+    updated_at = datetime.datetime.now().isoformat(timespec='seconds')
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''INSERT INTO team_month_queues (team_id, year_month, columns_json, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(team_id, year_month) DO UPDATE SET
+                 columns_json = excluded.columns_json,
+                 updated_at = excluded.updated_at''',
+            (team_id, year_month, json.dumps(columns, ensure_ascii=False), updated_at)
+        )
+        conn.commit()
+        return jsonify({
+            "success": True,
+            "team_id": team_id,
+            "year_month": year_month,
+            "columns": columns,
+            "updated_at": updated_at
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route('/api/team-month-queues', methods=['DELETE'])
+def delete_team_month_queues():
+    team_id = (request.args.get('team_id') or '').strip()
+    year_month = (request.args.get('year_month') or '').strip()
+    if not team_id or not year_month:
+        return jsonify({"error": "ต้องระบุ team_id และ year_month"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM team_month_queues WHERE team_id = ? AND year_month = ?",
+            (team_id, year_month)
+        )
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
 
 # 2. Shifts CRUD APIs
 @app.route('/api/shifts', methods=['GET'])

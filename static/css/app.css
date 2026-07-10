@@ -2030,6 +2030,288 @@ html.log-view-fit-root {
     }
 }
 
+/* ─── Queue Room (ห้องจัดคิว) ─── */
+
+.queue-room {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.queue-room-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 0.85rem 1rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.queue-room-month-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.queue-room-month-label {
+    font-weight: 600;
+    font-size: 1rem;
+    min-width: 9.5rem;
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.queue-room-team-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    flex: 1;
+}
+
+.queue-room-team-tab {
+    border: 1px solid var(--border-color);
+    background: var(--bg-muted);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    font-family: inherit;
+}
+
+.queue-room-team-tab:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+}
+
+.queue-room-team-tab.active.purple {
+    background: var(--team-purple-soft);
+    border-color: var(--team-purple);
+    color: #5B21B6;
+}
+
+.queue-room-team-tab.active.green {
+    background: var(--team-green-soft);
+    border-color: var(--team-green);
+    color: #047857;
+}
+
+.queue-room-team-tab.active.gray {
+    background: var(--team-gray-soft);
+    border-color: var(--team-gray);
+    color: #374151;
+}
+
+.queue-room-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.queue-room-hint {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin: 0;
+}
+
+.queue-room-meta {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.queue-room-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    max-width: 100%;
+}
+
+.queue-room-empty {
+    padding: 2.5rem 1.25rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.queue-room-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: max-content;
+    min-width: 100%;
+    font-size: 0.85rem;
+}
+
+.queue-room-table th,
+.queue-room-table td {
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0;
+    vertical-align: middle;
+}
+
+.queue-room-table th:last-child,
+.queue-room-table td:last-child {
+    border-right: none;
+}
+
+.qr-row-num {
+    width: 2.25rem;
+    min-width: 2.25rem;
+    text-align: center;
+    color: var(--text-muted);
+    background: var(--bg-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    padding: 0.35rem 0.25rem !important;
+}
+
+.qr-col-head {
+    min-width: 5.5rem;
+    text-align: center;
+    padding: 0.45rem 0.35rem !important;
+    font-weight: 600;
+    background: var(--bg-muted);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.queue-room-table.team-purple .qr-col-head {
+    background: var(--team-purple-soft);
+    color: #5B21B6;
+}
+
+.queue-room-table.team-green .qr-col-head {
+    background: var(--team-green-soft);
+    color: #047857;
+}
+
+.queue-room-table.team-gray .qr-col-head {
+    background: var(--team-gray-soft);
+    color: #374151;
+}
+
+.qr-col-head.first-col {
+    box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.35);
+}
+
+.qr-head-date {
+    font-size: 0.78rem;
+    line-height: 1.2;
+}
+
+.qr-head-shift {
+    font-size: 0.72rem;
+    font-weight: 500;
+    opacity: 0.9;
+    margin-top: 0.15rem;
+}
+
+.qr-head-badge {
+    margin-top: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #1D4ED8;
+    background: #DBEAFE;
+    border-radius: 999px;
+    padding: 0.1rem 0.35rem;
+    display: inline-block;
+}
+
+.qr-cell {
+    min-width: 5.5rem;
+}
+
+.qr-cell.first-col {
+    background: rgba(37, 99, 235, 0.04);
+}
+
+.qr-input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: center;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    text-transform: uppercase;
+}
+
+.qr-input:focus {
+    outline: 2px solid rgba(37, 99, 235, 0.45);
+    outline-offset: -2px;
+    background: #FFFFFF;
+}
+
+.queue-source-hint {
+    margin-top: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    padding: 0.5rem 0.65rem;
+    border-radius: 8px;
+    background: var(--bg-muted);
+    border: 1px solid var(--border-color);
+}
+
+.queue-source-hint.source-queueroom {
+    background: var(--color-info-soft);
+    border-color: #93C5FD;
+    color: #1E40AF;
+}
+
+.queue-source-hint.source-lastshift,
+.queue-source-hint.source-roster {
+    background: var(--color-warning-soft);
+    border-color: #FCD34D;
+    color: #92400E;
+}
+
+.queue-source-hint .hint-edit {
+    opacity: 0.85;
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .queue-room-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .queue-room-month-nav {
+        justify-content: center;
+    }
+
+    .queue-room-team-tabs {
+        justify-content: center;
+    }
+
+    .queue-room-actions {
+        margin-left: 0;
+        justify-content: stretch;
+    }
+
+    .queue-room-actions .btn {
+        flex: 1;
+    }
+}
+
 /* ─── Print ─── */
 
 @media print {
