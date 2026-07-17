@@ -524,6 +524,30 @@
         }
 
         /**
+         * เมตริกความกว้างตาราง capture — เลียนแบบแท็บเต็มจอ (/queue-room/view)
+         * แท็บใหม่: .queue-room-table { min-width:100% } ขยายคอลัมน์เต็มพาเนล
+         * เดิม capture ล็อก col=100px ทำให้รูปแคบและวันที่ขึ้นบรรทัด
+         */
+        function getQueueCaptureTableMetrics(columnCount) {
+            const numW = 44; // 2.75rem @ 16px — .queue-view-page .qr-row-num
+            const minColW = 100; // 6.25rem floor — .qr-col-head / .qr-view-cell
+            const colCount = Math.max(1, columnCount | 0);
+
+            // ความกว้างใกล้เคียงหน้าต่างแท็บใหม่ (ไม่แคบแบบ content-sized เดิม)
+            const viewportW = Math.max(
+                (window.screen && window.screen.availWidth) || 0,
+                window.outerWidth || 0,
+                window.innerWidth || 0,
+                1400
+            );
+            // ลบ padding .queue-view-page (1.5rem×2 ≈ 48px)
+            const targetTableW = Math.max(1200, Math.min(1920, Math.floor(viewportW - 48)));
+            const colW = Math.max(minColW, Math.floor((targetTableW - numW) / colCount));
+            const tableW = numW + colCount * colW;
+            return { numW, colW, tableW, targetTableW };
+        }
+
+        /**
          * สร้าง HTML ตารางคิวแบบเดียวกับแท็บเต็มจอ (/queue-room/view)
          * ใช้ style แบบ inline ทั้งหมด (ไม่พึ่ง CSS variables) เพื่อให้ html2canvas วาดตรง
          */
@@ -545,10 +569,8 @@
             const mono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
             const sans = 'Inter, "Noto Sans Thai", -apple-system, BlinkMacSystemFont, sans-serif';
 
-            // ขนาดเดียวกับ .queue-view-page (root 16px)
-            // col min-width 6.25rem=100px, # 2.75rem=44px, cell min-height 2.25rem=36px
-            const colW = 100;
-            const numW = 44;
+            // ขยายคอลัมน์เต็มความกว้างคล้ายแท็บใหม่ (ไม่ล็อก 100px)
+            const { numW, colW, tableW } = getQueueCaptureTableMetrics(columns.length);
 
             const cellBase = [
                 `width:${colW}px`,
@@ -579,8 +601,9 @@
                 'position:static'
             ].join(';');
 
+            // .qr-view-cell: padding 0.55rem 0.35rem, font 0.95rem, min-height 2.25rem
             const viewCell = (text, extra = '') =>
-                `<div style="min-width:${colW}px;min-height:36px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:8.8px 5.6px;font-size:15.2px;font-weight:600;font-family:${mono};text-transform:uppercase;text-align:center;line-height:1.2;color:#0F172A;${extra}">${escapeHtmlAttr(text)}</div>`;
+                `<div style="width:100%;min-width:0;min-height:36px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:8.8px 5.6px;font-size:15.2px;font-weight:600;font-family:${mono};text-transform:uppercase;text-align:center;line-height:1.2;color:#0F172A;${extra}">${escapeHtmlAttr(text)}</div>`;
 
             const supCells = columns.map((col, idx) => {
                 const val = (col.supervisor || '').trim().toUpperCase();
@@ -592,8 +615,8 @@
                 const h = formatQueueColumnHeader(col.date, col.shift_type);
                 const firstOutline = idx === 0 ? 'box-shadow:inset 0 0 0 2px rgba(37,99,235,0.35);' : '';
                 return `<th style="${cellBase};padding:8.8px 6.4px;background:${headBg.bg};color:${headBg.color};font-weight:600;text-align:center;${firstOutline}">
-                    <div style="font-size:14.08px;line-height:1.2;">${escapeHtmlAttr(h.dateLine)}</div>
-                    <div style="font-size:12.8px;font-weight:500;opacity:0.9;margin-top:2px;">${escapeHtmlAttr(h.shiftLine)}</div>
+                    <div style="font-size:14.08px;line-height:1.2;white-space:nowrap;">${escapeHtmlAttr(h.dateLine)}</div>
+                    <div style="font-size:12.8px;font-weight:500;opacity:0.9;margin-top:2px;white-space:nowrap;">${escapeHtmlAttr(h.shiftLine)}</div>
                 </th>`;
             }).join('');
 
@@ -609,8 +632,6 @@
                     ${cells}
                 </tr>`;
             }
-
-            const tableW = numW + columns.length * colW;
 
             return `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
@@ -680,17 +701,19 @@
             let iframe = null;
             try {
                 const team = getTeamDefinition(queueRoomTeamId);
+                const metrics = getQueueCaptureTableMetrics(queueRoomColumns.length);
                 const html = buildQueueRoomViewCaptureHtml(queueRoomColumns, team);
 
                 // iframe แยก document — layout เดียวกับแท็บเต็มจอ ชัวร์กว่า clone ในหน้าแก้ไข
                 iframe = document.createElement('iframe');
                 iframe.setAttribute('aria-hidden', 'true');
-                // อยู่นอกจอแต่ opacity 1 — html2canvas วาดจาก iframe ชัดกว่า opacity:0
+                // กว้างพอสำหรับตารางที่ขยายเต็ม (ไม่บีบคอลัมน์) — อยู่นอกจอ opacity 1
+                const iframeW = Math.max(metrics.tableW + 8, metrics.targetTableW + 8, 1200);
                 iframe.style.cssText = [
                     'position:fixed',
                     'top:0',
                     'left:-10000px',
-                    'width:2400px',
+                    `width:${iframeW}px`,
                     'height:1600px',
                     'opacity:1',
                     'pointer-events:none',
@@ -712,7 +735,7 @@
                 }
                 await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-                const tw = Math.ceil(Math.max(table.scrollWidth, table.offsetWidth));
+                const tw = Math.ceil(Math.max(table.scrollWidth, table.offsetWidth, metrics.tableW));
                 const th = Math.ceil(Math.max(table.scrollHeight, table.offsetHeight));
 
                 // ย่อ iframe ให้พอดีตาราง ก่อน capture
@@ -1965,7 +1988,13 @@
             const queue = selectedShift.queue || [];
             
             // Collect any employees serving as W/S from inputs/selections
+            // (clean initials — รวมกรณี dual half "SZ/CQ" → SZ + CQ)
             const wsOTs = [];
+            const pushWsOtToken = (val, isMorning) => {
+                if (!val || !String(val).trim()) return;
+                expandOTToken(String(val).trim().toUpperCase(), { isMorning })
+                    .forEach(x => wsOTs.push(getCleanInitials(x)));
+            };
             if (selectedShift.shift_type === 'M8/A14') {
                 const wsM8Val = document.getElementById('attendance-ws-m8-ot-input')?.value || '';
                 const wsM8MorningVal = document.getElementById('attendance-ws-m8-morning-ot-input')?.value || '';
@@ -1974,8 +2003,11 @@
                 const wsA14MorningVal = document.getElementById('attendance-ws-a14-morning-ot-input')?.value || '';
                 const wsA14AfternoonVal = document.getElementById('attendance-ws-a14-afternoon-ot-input')?.value || '';
                 
-                [wsM8Val, wsM8MorningVal, wsM8AfternoonVal, wsA14Val, wsA14MorningVal, wsA14AfternoonVal].forEach(val => {
-                    if (val && val.trim()) wsOTs.push(val.trim().toUpperCase());
+                // full-day ช่องรองรับ SZ/CQ; ครึ่งวันเป็นชื่อเดี่ยว
+                pushWsOtToken(wsM8Val, true);
+                pushWsOtToken(wsA14Val, true);
+                [wsM8MorningVal, wsM8AfternoonVal, wsA14MorningVal, wsA14AfternoonVal].forEach(val => {
+                    if (val && val.trim()) wsOTs.push(getCleanInitials(val.trim().toUpperCase()));
                 });
             } else {
                 const wsNVal = document.getElementById('attendance-ws-n-ot-input')?.value || '';
@@ -2053,7 +2085,10 @@
             }
             
             // No auto-initialization of A/N assignments. Default is no selection, user will select manually.
-            shiftOTs = shift.ots || [];
+            // Expand dual half "SZ/CQ" → SZ/- + -/CQ (เผื่อข้อมูลเก่าที่บันทึกแบบ token เดียว)
+            shiftOTs = expandOTTokenList(shift.ots || [], {
+                isMorning: shift.shift_type === 'M8/A14'
+            });
             restoreOTReplacementsFromShift(shift);
             
             const wsInitials = (shift.supervisor || '').match(/[A-Z]{2}/g) || [];
@@ -2198,6 +2233,8 @@
 
             // Populate hidden OT inputs from per-employee map (or legacy ots fallback)
             syncOTInputsFromState();
+            // Rebuild shiftOTs จาก map (รวม expand SZ/CQ) ให้สอดคล้องช่องกรอก
+            updateCombinedOTs();
 
             updateLineCopyText();
             renderAttendanceControls();
@@ -2429,14 +2466,14 @@
                             if (emp === svParts[0]) {
                                 badgeText = 'W/S M8';
                                 wsOTInputIds = [
-                                    { id: 'attendance-ws-m8-ot-input',          label: 'OT แทน (เต็มวัน)', showWhen: 'full' },
+                                    { id: 'attendance-ws-m8-ot-input',          label: 'OT แทน (เต็มวัน) เช่น SZ หรือ SZ/CQ', showWhen: 'full' },
                                     { id: 'attendance-ws-m8-morning-ot-input',  label: 'OT แทน (ครึ่งเช้า)', showWhen: 'half-morning' },
                                     { id: 'attendance-ws-m8-afternoon-ot-input',label: 'OT แทน (ครึ่งบ่าย)', showWhen: 'half-afternoon' },
                                 ];
                             } else if (svParts.length >= 2 && emp === svParts[1]) {
                                 badgeText = 'W/S A14';
                                 wsOTInputIds = [
-                                    { id: 'attendance-ws-a14-ot-input',          label: 'OT แทน (เต็มวัน)', showWhen: 'full' },
+                                    { id: 'attendance-ws-a14-ot-input',          label: 'OT แทน (เต็มวัน) เช่น SZ หรือ SZ/CQ', showWhen: 'full' },
                                     { id: 'attendance-ws-a14-morning-ot-input',  label: 'OT แทน (ครึ่งเช้า)', showWhen: 'half-morning' },
                                     { id: 'attendance-ws-a14-afternoon-ot-input',label: 'OT แทน (ครึ่งบ่าย)', showWhen: 'half-afternoon' },
                                 ];
@@ -2510,7 +2547,7 @@
                             const nameClass = getMorningNameClass(leaveType);
 
                             const otInputMap = {
-                                'full':           { id: 'attendance-ot-input',          label: 'OT แทน (เต็มวัน)' },
+                                'full':           { id: 'attendance-ot-input',          label: 'OT แทน (เต็มวัน) เช่น SZ หรือ SZ/CQ' },
                                 'half-morning':   { id: 'attendance-ot-morning-input',   label: 'OT แทน (ครึ่งเช้า)' },
                                 'half-afternoon': { id: 'attendance-ot-afternoon-input',  label: 'OT แทน (ครึ่งบ่าย)' },
                             };
@@ -2688,8 +2725,53 @@
             return (empInlineOTMap[emp] && empInlineOTMap[emp][leaveType]) || '';
         }
 
+        /**
+         * OT แทน 2 คนครึ่งวันในช่องเดียว: "SZ/CQ"
+         * ทั้งสองฝั่งต้องเป็นชื่อย่อ 2+ ตัวอักษร (ไม่ชน SZ/-, -/CQ, SZ/A)
+         */
+        function parseDualHalfOTToken(raw) {
+            if (!raw || typeof raw !== 'string') return null;
+            const s = raw.trim().toUpperCase().replace(/\s*\/\s*/g, '/');
+            const m = s.match(/^([A-Z]{2,})\/([A-Z]{2,})$/);
+            if (!m) return null;
+            return { morning: m[1], afternoon: m[2] };
+        }
+
+        /**
+         * แตก token OT หนึ่งค่า → รายการที่ระบบใช้จัดเวร
+         * M8/A14: "SZ/CQ" → ["SZ/-", "-/CQ"] ; "SZ" → ["SZ"]
+         */
+        function expandOTToken(token, { isMorning = true } = {}) {
+            if (!token || typeof token !== 'string') return [];
+            const t = token.trim().toUpperCase().replace(/\s*\/\s*/g, '/');
+            if (!t) return [];
+            if (isMorning) {
+                const dual = parseDualHalfOTToken(t);
+                if (dual) return [`${dual.morning}/-`, `-/${dual.afternoon}`];
+            }
+            return [t];
+        }
+
+        function expandOTTokenList(tokens, opts) {
+            const out = [];
+            (tokens || []).forEach(t => {
+                expandOTToken(t, opts).forEach(x => out.push(x));
+            });
+            return out;
+        }
+
+        /** จัดรูปแบบค่าในช่อง OT (compact dual half, trim) */
+        function normalizeOTInputValue(raw) {
+            if (!raw) return '';
+            let val = String(raw).trim().toUpperCase().replace(/\s*\/\s*/g, '/');
+            val = val.replace(/\s+/g, ' ').trim();
+            const dual = parseDualHalfOTToken(val);
+            if (dual) return `${dual.morning}/${dual.afternoon}`;
+            return val;
+        }
+
         function setInlineOT(emp, leaveType, rawValue) {
-            const val = rawValue.trim().toUpperCase();
+            const val = normalizeOTInputValue(rawValue);
             if (!empInlineOTMap[emp]) empInlineOTMap[emp] = {};
             if (val) {
                 empInlineOTMap[emp][leaveType] = val;
@@ -2789,9 +2871,13 @@
                 const wsA14MorningVal = document.getElementById('attendance-ws-a14-morning-ot-input')?.value || '';
                 const wsA14AfternoonVal = document.getElementById('attendance-ws-a14-afternoon-ot-input')?.value || '';
                 
-                const fullOTs = fullVal.split(/[\s,;\n]+/)
-                    .map(s => s.trim().toUpperCase())
-                    .filter(s => s.length > 0);
+                // full-day OT: "SZ" คนเดียว หรือ "SZ/CQ" = ครึ่งเช้า/ครึ่งบ่าย
+                const fullOTs = expandOTTokenList(
+                    fullVal.split(/[\s,;\n]+/)
+                        .map(s => s.trim().toUpperCase())
+                        .filter(s => s.length > 0),
+                    { isMorning: true }
+                );
                 
                 const morningOTs = morningVal.split(/[\s,;\n]+/)
                     .map(s => s.trim().toUpperCase())
@@ -2804,8 +2890,10 @@
                     .map(s => `-/${s}`);
                     
                 const wsOTs = [];
+                // W/S เต็มวัน รองรับ SZ/CQ เหมือน OT พนักงานปกติ
                 if (wsM8Val.trim()) {
-                    wsOTs.push(wsM8Val.trim().toUpperCase());
+                    expandOTToken(wsM8Val.trim().toUpperCase(), { isMorning: true })
+                        .forEach(x => wsOTs.push(x));
                 }
                 if (wsM8MorningVal.trim()) {
                     wsOTs.push(`${wsM8MorningVal.trim().toUpperCase()}/-`);
@@ -2814,7 +2902,8 @@
                     wsOTs.push(`-/${wsM8AfternoonVal.trim().toUpperCase()}`);
                 }
                 if (wsA14Val.trim()) {
-                    wsOTs.push(wsA14Val.trim().toUpperCase());
+                    expandOTToken(wsA14Val.trim().toUpperCase(), { isMorning: true })
+                        .forEach(x => wsOTs.push(x));
                 }
                 if (wsA14MorningVal.trim()) {
                     wsOTs.push(`${wsA14MorningVal.trim().toUpperCase()}/-`);
@@ -3062,7 +3151,13 @@
                     
                     if (wsM8Leave === 'full') {
                         if (wsM8ReplFull) {
-                            parsedChoices[wsM8ReplFull] = "W/S M8";
+                            const dual = parseDualHalfOTToken(wsM8ReplFull);
+                            if (dual) {
+                                parsedChoices[`${dual.morning}/-`] = "W/S M8/-";
+                                parsedChoices[`-/${dual.afternoon}`] = "-/W/S M8";
+                            } else {
+                                parsedChoices[wsM8ReplFull] = "W/S M8";
+                            }
                         }
                     } else if (wsM8Leave === 'half-morning') {
                         parsedChoices[wsM8] = "-/W/S M8";
@@ -3090,7 +3185,13 @@
                     
                     if (wsA14Leave === 'full') {
                         if (wsA14ReplFull) {
-                            parsedChoices[wsA14ReplFull] = "W/S A14";
+                            const dual = parseDualHalfOTToken(wsA14ReplFull);
+                            if (dual) {
+                                parsedChoices[`${dual.morning}/-`] = "W/S A14/-";
+                                parsedChoices[`-/${dual.afternoon}`] = "-/W/S A14";
+                            } else {
+                                parsedChoices[wsA14ReplFull] = "W/S A14";
+                            }
                         }
                     } else if (wsA14Leave === 'half-morning') {
                         parsedChoices[wsA14] = "-/W/S A14";
@@ -3157,7 +3258,9 @@
                 if (choice) {
                     const isValid = validateChoiceFormat(choice, isMorning);
                     if (isValid) {
-                        const isOT = shiftOTs.includes(emp);
+                        const isOT = shiftOTs.some(ot =>
+                            ot === emp || getCleanInitials(ot) === cleanName
+                        );
                         const displayChoice = isOT ? `${choice} (โอที)` : choice;
                         card.className = 'emp-status-card mapped';
                         card.innerHTML = `
