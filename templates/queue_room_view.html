@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ดูตารางคิว (Full Screen)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="queue-view-page">
+
+    <div class="log-view-loading" id="loading-indicator">กำลังโหลดตารางคิว...</div>
+
+    <div id="table-container" class="queue-view-panel">
+        <header class="queue-view-header">
+            <div>
+                <div class="queue-view-title" id="queue-view-title">ตารางคิว</div>
+                <div class="queue-view-subtitle" id="queue-view-subtitle"></div>
+            </div>
+        </header>
+        <p class="log-view-scroll-hint" id="queue-scroll-hint">เลื่อนซ้าย-ขวาเพื่อดูตารางทั้งหมด</p>
+        <div class="queue-view-table-wrap" id="queue-view-table-wrap">
+            <div class="queue-room-empty" id="queue-view-empty" style="display: none;">ไม่มีวันทำงานของทีมนี้ในเดือนที่เลือก</div>
+            <table class="queue-room-table queue-view-table" id="queue-view-table" style="display: none;">
+                <thead id="queue-view-thead"></thead>
+                <tbody id="queue-view-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/team_schedule.js') }}"></script>
+    <script>
+        const THAI_MONTHS_FULL = [
+            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+        ];
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const teamId = (urlParams.get('team_id') || '').trim();
+        const yearMonth = (urlParams.get('year_month') || '').trim();
+
+        if (!teamId || !yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
+            document.getElementById('loading-indicator').innerText =
+                'ข้อผิดพลาด: ต้องระบุ team_id และ year_month (เช่น 2026-07)';
+        } else {
+            loadQueueRoomView();
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        async function loadQueueRoomView() {
+            const [yearStr, monthStr] = yearMonth.split('-');
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10);
+            const team = typeof getTeamDefinition === 'function' ? getTeamDefinition(teamId) : null;
+            const teamLabel = team
+                ? `${team.emoji} ${team.name}`
+                : teamId;
+            const monthLabel = `${THAI_MONTHS_FULL[month - 1] || month} ${year}`;
+
+            document.title = `ตารางคิว - ${team ? team.shortName : teamId} · ${monthLabel}`;
+
+            try {
+                const res = await fetch(
+                    `/api/team-month-queues?team_id=${encodeURIComponent(teamId)}&year_month=${encodeURIComponent(yearMonth)}`
+                );
+                if (!res.ok) throw new Error('ไม่สามารถโหลดแผนคิวได้');
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                const skeleton = listTeamWorkColumns(teamId, year, month);
+                const columns = mergeTeamWorkColumns(skeleton, data.columns || []);
+                const updatedAt = data.updated_at || null;
+
+                document.getElementById('queue-view-title').textContent =
+                    `ตารางคิว · ${teamLabel}`;
+                document.getElementById('queue-view-subtitle').textContent =
+                    `${monthLabel} · ${columns.length} คอลัมน์` +
+                    (updatedAt ? ` · บันทึกล่าสุด: ${updatedAt}` : ' · ยังไม่เคยบันทึก');
+
+                renderQueueViewTable(columns, team);
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('table-container').classList.add('is-visible');
+            } catch (err) {
+                document.getElementById('loading-indicator').innerText =
+                    `เกิดข้อผิดพลาด: ${err.message || err}`;
+            }
+        }
+
+        function getRowCount(columns) {
+            let maxLen = 13;
+            columns.forEach(col => {
+                if (col.queue && col.queue.length > maxLen) maxLen = col.queue.length;
+            });
+            return Math.max(maxLen, 13);
+        }
+
+        function renderQueueViewTable(columns, team) {
+            const table = document.getElementById('queue-view-table');
+            const empty = document.getElementById('queue-view-empty');
+            const thead = document.getElementById('queue-view-thead');
+            const tbody = document.getElementById('queue-view-tbody');
+            const hint = document.getElementById('queue-scroll-hint');
+            const teamClass = team ? team.cssClass : '';
+
+            if (!columns.length) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                if (hint) hint.style.display = 'none';
+                return;
+            }
+
+            empty.style.display = 'none';
+            table.style.display = 'table';
+            table.className = `queue-room-table queue-view-table team-${teamClass}`;
+            if (hint) hint.style.display = 'block';
+
+            const supervisorCells = columns.map((col, cIdx) => {
+                const val = col.supervisor || '';
+                const firstClass = cIdx === 0 ? ' first-col' : '';
+                return `<th class="qr-sup-cell${firstClass}">
+                    <div class="qr-view-cell qr-view-sup mono">${escapeHtml(val)}</div>
+                </th>`;
+            }).join('');
+
+            const headerCells = columns.map((col, idx) => {
+                const h = formatQueueColumnHeader(col.date, col.shift_type);
+                const firstClass = idx === 0 ? ' first-col' : '';
+                return `<th class="qr-col-head${firstClass}">
+                    <div class="qr-head-date">${escapeHtml(h.dateLine)}</div>
+                    <div class="qr-head-shift">${escapeHtml(h.shiftLine)}</div>
+                </th>`;
+            }).join('');
+
+            thead.innerHTML = `
+                <tr class="qr-sup-row">
+                    <th class="qr-row-num qr-sup-label" title="Supervisor">Sup</th>
+                    ${supervisorCells}
+                </tr>
+                <tr>
+                    <th class="qr-row-num">#</th>
+                    ${headerCells}
+                </tr>`;
+
+            const rowCount = getRowCount(columns);
+            let bodyHtml = '';
+            for (let r = 0; r < rowCount; r += 1) {
+                const cells = columns.map((col, cIdx) => {
+                    const val = (col.queue && col.queue[r]) ? col.queue[r] : '';
+                    const firstClass = cIdx === 0 ? ' first-col' : '';
+                    return `<td class="qr-cell${firstClass}">
+                        <div class="qr-view-cell mono">${escapeHtml(val)}</div>
+                    </td>`;
+                }).join('');
+                bodyHtml += `<tr><td class="qr-row-num">${r + 1}</td>${cells}</tr>`;
+            }
+            tbody.innerHTML = bodyHtml;
+        }
+    </script>
+</body>
+</html>

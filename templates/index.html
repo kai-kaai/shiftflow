@@ -123,6 +123,12 @@
                         <!-- Filled dynamically from TEAM_SCHEDULE -->
                     </div>
                     <div class="queue-room-actions">
+                        <button type="button" class="btn btn-secondary btn-accent-success" onclick="openQueueRoomNewTab()" title="ดูตารางคิวแบบเต็มจอในแท็บใหม่">
+                            🔗 เปิดในแท็บใหม่
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-accent-warning" id="btn-download-queue-img" onclick="downloadQueueRoomAsImage()" title="บันทึกตารางคิวเป็นรูปภาพ PNG">
+                            📥 ดาวน์โหลดรูป
+                        </button>
                         <button type="button" class="btn btn-secondary" onclick="runQueueRoomQue()" title="ใช้คอลัมน์แรกหมุนสร้างคิววันทำงานที่เหลือ">
                             ▶ Run Que
                         </button>
@@ -505,6 +511,248 @@
             return formatYearMonth(queueRoomYear, queueRoomMonth);
         }
 
+        function openQueueRoomNewTab() {
+            if (queueRoomDirty) {
+                if (!confirm('มีการแก้ไขที่ยังไม่บันทึก แท็บใหม่จะแสดงข้อมูลที่บันทึกล่าสุดเท่านั้น ต้องการเปิดต่อหรือไม่?')) {
+                    return;
+                }
+            }
+            const yearMonth = getQueueRoomYearMonth();
+            const teamId = encodeURIComponent(queueRoomTeamId);
+            const ym = encodeURIComponent(yearMonth);
+            window.open(`/queue-room/view?team_id=${teamId}&year_month=${ym}`, '_blank');
+        }
+
+        /**
+         * สร้าง HTML ตารางคิวแบบเดียวกับแท็บเต็มจอ (/queue-room/view)
+         * ใช้ style แบบ inline ทั้งหมด (ไม่พึ่ง CSS variables) เพื่อให้ html2canvas วาดตรง
+         */
+        function buildQueueRoomViewCaptureHtml(columns, team) {
+            const teamId = team ? team.cssClass : '';
+            const headBg = {
+                purple: { bg: '#EDE9FE', color: '#5B21B6' },
+                green: { bg: '#D1FAE5', color: '#047857' },
+                gray: { bg: '#F3F4F6', color: '#374151' }
+            }[teamId] || { bg: '#F1F5F9', color: '#0F172A' };
+
+            let maxLen = 13;
+            columns.forEach(col => {
+                if (col.queue && col.queue.length > maxLen) maxLen = col.queue.length;
+            });
+            const rowCount = Math.max(maxLen, 13);
+
+            const border = '#E2E8F0';
+            const mono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+            const sans = 'Inter, "Noto Sans Thai", -apple-system, BlinkMacSystemFont, sans-serif';
+
+            // ขนาดเดียวกับ .queue-view-page (root 16px)
+            // col min-width 6.25rem=100px, # 2.75rem=44px, cell min-height 2.25rem=36px
+            const colW = 100;
+            const numW = 44;
+
+            const cellBase = [
+                `width:${colW}px`,
+                `min-width:${colW}px`,
+                `max-width:${colW}px`,
+                'box-sizing:border-box',
+                `border-right:1px solid ${border}`,
+                `border-bottom:1px solid ${border}`,
+                'padding:0',
+                'vertical-align:middle',
+                'position:static'
+            ].join(';');
+
+            const numBase = [
+                `width:${numW}px`,
+                `min-width:${numW}px`,
+                `max-width:${numW}px`,
+                'box-sizing:border-box',
+                `border-right:1px solid ${border}`,
+                `border-bottom:1px solid ${border}`,
+                'padding:7px 5px',
+                'text-align:center',
+                'vertical-align:middle',
+                'font-size:13.6px',
+                'font-weight:600',
+                'color:#94A3B8',
+                'background:#F1F5F9',
+                'position:static'
+            ].join(';');
+
+            const viewCell = (text, extra = '') =>
+                `<div style="min-width:${colW}px;min-height:36px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:8.8px 5.6px;font-size:15.2px;font-weight:600;font-family:${mono};text-transform:uppercase;text-align:center;line-height:1.2;color:#0F172A;${extra}">${escapeHtmlAttr(text)}</div>`;
+
+            const supCells = columns.map((col, idx) => {
+                const val = (col.supervisor || '').trim().toUpperCase();
+                const firstBg = idx === 0 ? 'background:#FEF3C7;' : 'background:#FFFBEB;';
+                return `<th style="${cellBase};${firstBg}">${viewCell(val, 'font-size:14.08px;font-weight:700;color:#92400E;')}</th>`;
+            }).join('');
+
+            const dateCells = columns.map((col, idx) => {
+                const h = formatQueueColumnHeader(col.date, col.shift_type);
+                const firstOutline = idx === 0 ? 'box-shadow:inset 0 0 0 2px rgba(37,99,235,0.35);' : '';
+                return `<th style="${cellBase};padding:8.8px 6.4px;background:${headBg.bg};color:${headBg.color};font-weight:600;text-align:center;${firstOutline}">
+                    <div style="font-size:14.08px;line-height:1.2;">${escapeHtmlAttr(h.dateLine)}</div>
+                    <div style="font-size:12.8px;font-weight:500;opacity:0.9;margin-top:2px;">${escapeHtmlAttr(h.shiftLine)}</div>
+                </th>`;
+            }).join('');
+
+            let body = '';
+            for (let r = 0; r < rowCount; r += 1) {
+                const cells = columns.map((col, idx) => {
+                    const val = (col.queue && col.queue[r]) ? col.queue[r] : '';
+                    const firstBg = idx === 0 ? 'background:rgba(37,99,235,0.04);' : 'background:#FFFFFF;';
+                    return `<td style="${cellBase};${firstBg}">${viewCell(val)}</td>`;
+                }).join('');
+                body += `<tr>
+                    <td style="${numBase}">${r + 1}</td>
+                    ${cells}
+                </tr>`;
+            }
+
+            const tableW = numW + columns.length * colW;
+
+            return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  html, body { margin:0; padding:0; background:#FFFFFF; }
+  body { font-family: ${sans}; font-size:16px; }
+  table { border-collapse: separate; border-spacing: 0; width: ${tableW}px; table-layout: fixed; background:#FFFFFF; }
+  th:last-child, td:last-child { border-right: none !important; }
+</style></head><body>
+<table id="capture-table">
+  <colgroup>
+    <col style="width:${numW}px">
+    ${columns.map(() => `<col style="width:${colW}px">`).join('')}
+  </colgroup>
+  <thead>
+    <tr>
+      <th style="${numBase};background:#FEF3C7;color:#92400E;font-size:11.2px;font-weight:700;">Sup</th>
+      ${supCells}
+    </tr>
+    <tr>
+      <th style="${numBase}">#</th>
+      ${dateCells}
+    </tr>
+  </thead>
+  <tbody>${body}</tbody>
+</table>
+</body></html>`;
+        }
+
+        function loadIframeSrcdoc(iframe, html) {
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error('โหลดตารางสำหรับจับภาพหมดเวลา')), 8000);
+                iframe.onload = () => {
+                    clearTimeout(timer);
+                    resolve();
+                };
+                iframe.onerror = () => {
+                    clearTimeout(timer);
+                    reject(new Error('โหลด iframe ไม่สำเร็จ'));
+                };
+                iframe.srcdoc = html;
+            });
+        }
+
+        async function downloadQueueRoomAsImage() {
+            const btn = document.getElementById('btn-download-queue-img');
+            const liveTable = document.getElementById('queue-room-table');
+
+            if (!liveTable || liveTable.style.display === 'none' || !queueRoomColumns.length) {
+                showToast('ไม่มีตารางคิวให้ดาวน์โหลด', 'warning');
+                return;
+            }
+            if (typeof html2canvas !== 'function') {
+                showToast('ไม่พบไลบรารีสร้างรูปภาพ', 'error');
+                return;
+            }
+
+            // ดึงค่าล่าสุดจากช่องกรอกในตารางคิว (รวม Sup)
+            syncQueueRoomColumnsFromDom();
+
+            const originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = '⏳ กำลังสร้างรูป...';
+                btn.disabled = true;
+            }
+            showLoading(true);
+
+            let iframe = null;
+            try {
+                const team = getTeamDefinition(queueRoomTeamId);
+                const html = buildQueueRoomViewCaptureHtml(queueRoomColumns, team);
+
+                // iframe แยก document — layout เดียวกับแท็บเต็มจอ ชัวร์กว่า clone ในหน้าแก้ไข
+                iframe = document.createElement('iframe');
+                iframe.setAttribute('aria-hidden', 'true');
+                // อยู่นอกจอแต่ opacity 1 — html2canvas วาดจาก iframe ชัดกว่า opacity:0
+                iframe.style.cssText = [
+                    'position:fixed',
+                    'top:0',
+                    'left:-10000px',
+                    'width:2400px',
+                    'height:1600px',
+                    'opacity:1',
+                    'pointer-events:none',
+                    'border:0',
+                    'z-index:0',
+                    'background:#FFFFFF'
+                ].join(';');
+                document.body.appendChild(iframe);
+
+                await loadIframeSrcdoc(iframe, html);
+
+                const idoc = iframe.contentDocument;
+                const table = idoc.getElementById('capture-table');
+                if (!table) throw new Error('ไม่พบตารางสำหรับจับภาพ');
+
+                // รอ font + layout
+                if (idoc.fonts && idoc.fonts.ready) {
+                    try { await idoc.fonts.ready; } catch (_) { /* ignore */ }
+                }
+                await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+                const tw = Math.ceil(Math.max(table.scrollWidth, table.offsetWidth));
+                const th = Math.ceil(Math.max(table.scrollHeight, table.offsetHeight));
+
+                // ย่อ iframe ให้พอดีตาราง ก่อน capture
+                iframe.style.width = `${tw + 4}px`;
+                iframe.style.height = `${th + 4}px`;
+                await new Promise(r => requestAnimationFrame(r));
+
+                const canvas = await html2canvas(table, {
+                    backgroundColor: '#FFFFFF',
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    width: tw,
+                    height: th,
+                    windowWidth: tw,
+                    windowHeight: th,
+                    scrollX: 0,
+                    scrollY: 0
+                });
+
+                const teamSlug = (team && team.id) ? team.id : String(queueRoomTeamId || 'team');
+                const filename = `Queue_${teamSlug}_${getQueueRoomYearMonth()}.png`;
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('ดาวน์โหลดรูปตารางคิวแล้ว', 'success');
+            } catch (err) {
+                console.error('Queue room download error:', err);
+                showToast('เกิดข้อผิดพลาดในการสร้างรูปภาพ: ' + (err.message || err), 'error');
+            } finally {
+                if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                if (btn) {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+                showLoading(false);
+            }
+        }
+
         function initQueueRoomIfNeeded() {
             renderQueueRoomTeamTabs();
             loadQueueRoomPlan();
@@ -648,6 +896,21 @@
             table.style.display = 'table';
             table.className = `queue-room-table team-${teamClass}`;
 
+            // แถวบนสุด: Supervisor (เหนือวันที่)
+            const supervisorCells = queueRoomColumns.map((col, cIdx) => {
+                const val = col.supervisor || '';
+                const firstClass = cIdx === 0 ? ' first-col' : '';
+                return `<th class="qr-sup-cell${firstClass}">
+                    <input type="text" class="qr-input qr-sup-input mono" maxlength="24"
+                        data-col="${cIdx}"
+                        value="${escapeHtmlAttr(val)}"
+                        placeholder="Sup"
+                        oninput="onQueueRoomSupervisorInput(${cIdx}, this.value)"
+                        autocomplete="off" spellcheck="false"
+                        title="Supervisor">
+                </th>`;
+            }).join('');
+
             const headerCells = queueRoomColumns.map((col, idx) => {
                 const h = formatQueueColumnHeader(col.date, col.shift_type);
                 const firstClass = idx === 0 ? ' first-col' : '';
@@ -658,7 +921,15 @@
                 </th>`;
             }).join('');
 
-            thead.innerHTML = `<tr><th class="qr-row-num">#</th>${headerCells}</tr>`;
+            thead.innerHTML = `
+                <tr class="qr-sup-row">
+                    <th class="qr-row-num qr-sup-label" title="Supervisor">Sup</th>
+                    ${supervisorCells}
+                </tr>
+                <tr>
+                    <th class="qr-row-num">#</th>
+                    ${headerCells}
+                </tr>`;
 
             const rowCount = getQueueRoomRowCount();
             let bodyHtml = '';
@@ -701,8 +972,15 @@
             updateQueueRoomMeta();
         }
 
+        function onQueueRoomSupervisorInput(colIdx, value) {
+            if (!queueRoomColumns[colIdx]) return;
+            queueRoomColumns[colIdx].supervisor = String(value || '').trim().toUpperCase();
+            queueRoomDirty = true;
+            updateQueueRoomMeta();
+        }
+
         function collectColumnQueueFromDom(colIdx) {
-            const inputs = document.querySelectorAll(`.qr-input[data-col="${colIdx}"]`);
+            const inputs = document.querySelectorAll(`.qr-input[data-col="${colIdx}"]:not(.qr-sup-input)`);
             const result = [];
             inputs.forEach(input => {
                 const v = String(input.value || '').trim().toUpperCase();
@@ -711,9 +989,16 @@
             return result;
         }
 
+        function collectColumnSupervisorFromDom(colIdx) {
+            const input = document.querySelector(`.qr-sup-input[data-col="${colIdx}"]`);
+            if (!input) return '';
+            return String(input.value || '').trim().toUpperCase();
+        }
+
         function syncQueueRoomColumnsFromDom() {
             queueRoomColumns.forEach((col, idx) => {
                 col.queue = collectColumnQueueFromDom(idx);
+                col.supervisor = collectColumnSupervisorFromDom(idx);
             });
         }
 
@@ -3267,19 +3552,34 @@
             const targetTeam = getTeamForDate(targetDate, targetShiftType);
             const teamDisplay = getTeamDisplay(targetTeam);
 
-            // 1) Suggestion จากห้องจัดคิว (คอลัมน์วัน/กะตรงกัน)
+            // 1) Suggestion จากห้องจัดคิว (คอลัมน์วัน/กะตรงกัน) — รวม Sup จากแถวบน
             if (targetTeam && targetDate && targetShiftType) {
                 const yearMonth = String(targetDate).slice(0, 7);
                 try {
                     const columns = await ensureTeamMonthPlan(targetTeam, yearMonth);
                     const col = lookupQueueRoomColumn(columns, targetDate, targetShiftType);
+                    const roomSupervisor = (col && col.supervisor) ? String(col.supervisor).trim().toUpperCase() : '';
                     if (col && Array.isArray(col.queue) && col.queue.length > 0) {
                         const teamLabel = teamDisplay ? teamDisplay.refLabel : targetTeam;
                         const h = formatQueueColumnHeader(targetDate, targetShiftType);
+                        const supHint = roomSupervisor
+                            ? ` · Sup <strong>${roomSupervisor}</strong>`
+                            : '';
                         return {
                             queue: col.queue.slice(),
+                            supervisor: roomSupervisor,
                             source: 'queueroom',
-                            hintHtml: `แนะนำจาก <strong>ห้องจัดคิว</strong> · ${teamLabel} · ${h.dateLine} ${h.shiftLine} <span class="hint-edit">(แก้ไขได้ก่อนสร้าง — ไม่กระทบห้องจัดคิว)</span>`
+                            hintHtml: `แนะนำจาก <strong>ห้องจัดคิว</strong> · ${teamLabel} · ${h.dateLine} ${h.shiftLine}${supHint} <span class="hint-edit">(แก้ไขได้ก่อนสร้าง — ไม่กระทบห้องจัดคิว)</span>`
+                        };
+                    }
+                    // มีคอลัมน์แต่ยังไม่มีคิว — ยังใช้ Sup จากตารางได้
+                    if (roomSupervisor) {
+                        const queue = getSuggestedQueueFromLastShift(targetDate, targetShiftType);
+                        return {
+                            queue,
+                            supervisor: roomSupervisor,
+                            source: 'queueroom',
+                            hintHtml: `Sup จาก <strong>ห้องจัดคิว</strong> · คิวยังไม่มีในตาราง ใช้ fallback · <span class="hint-edit">(แก้ไขได้)</span>`
                         };
                     }
                 } catch (err) {
@@ -3293,6 +3593,7 @@
                 const teamLabel = teamDisplay ? teamDisplay.refLabel : targetTeam;
                 return {
                     queue,
+                    supervisor: '',
                     source: 'lastshift',
                     hintHtml: `แนะนำจาก <strong>เวรล่าสุดของทีม</strong> · ${teamLabel} (ยังไม่มีคิวในห้องจัดคิว) <span class="hint-edit">(แก้ไขได้)</span>`
                 };
@@ -3300,15 +3601,23 @@
             if (queue.length > 0) {
                 return {
                     queue,
+                    supervisor: '',
                     source: 'lastshift',
                     hintHtml: `แนะนำจาก <strong>เวรล่าสุด / roster</strong> <span class="hint-edit">(แก้ไขได้)</span>`
                 };
             }
             return {
                 queue: allEmps.slice(0, 13),
+                supervisor: '',
                 source: 'roster',
                 hintHtml: `แนะนำจาก <strong>รายชื่อพนักงานในระบบ</strong> <span class="hint-edit">(แก้ไขได้)</span>`
             };
+        }
+
+        function applySuggestedSupervisor(result) {
+            const input = document.getElementById('shift-supervisor-input');
+            if (!input) return;
+            input.value = (result && result.supervisor) ? result.supervisor : '';
         }
 
         function updateQueueSourceHint(result) {
@@ -3399,6 +3708,7 @@
             
             const result = await resolveSuggestedQueue(dateVal, typeVal);
             document.getElementById('shift-queue-input').value = result.queue.join('\n');
+            applySuggestedSupervisor(result);
             updateQueueSourceHint(result);
         }
 
@@ -3440,6 +3750,7 @@
             
             const result = await resolveSuggestedQueue(suggestedDate, suggestedShiftType);
             document.getElementById('shift-queue-input').value = result.queue.join('\n');
+            applySuggestedSupervisor(result);
             updateQueueSourceHint(result);
             
             document.getElementById('create-shift-modal').classList.add('active');

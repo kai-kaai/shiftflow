@@ -319,6 +319,10 @@ def index():
 def view_hourly_log_standalone():
     return render_template('hourly_log_view.html')
 
+@app.route('/queue-room/view')
+def view_queue_room_standalone():
+    return render_template('queue_room_view.html')
+
 # 1. Roster APIs
 @app.route('/api/employees', methods=['GET'])
 def get_employees():

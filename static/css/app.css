@@ -2030,6 +2030,137 @@ html.log-view-fit-root {
     }
 }
 
+/* ─── Queue Room Full-Screen View ─── */
+
+.queue-view-page {
+    font-family: var(--font-sans);
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 1.5rem;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.queue-view-panel {
+    display: none;
+    width: 100%;
+    max-width: 100%;
+}
+
+.queue-view-panel.is-visible {
+    display: block;
+}
+
+.queue-view-header {
+    width: 100%;
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.queue-view-title {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.queue-view-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.queue-view-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.queue-view-page .queue-view-table {
+    font-size: 0.95rem;
+}
+
+.queue-view-page .qr-col-head {
+    min-width: 6.25rem;
+    padding: 0.55rem 0.4rem !important;
+    font-size: 0.9rem;
+}
+
+.queue-view-page .qr-head-date {
+    font-size: 0.88rem;
+}
+
+.queue-view-page .qr-head-shift {
+    font-size: 0.8rem;
+}
+
+.queue-view-page .qr-row-num {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.3rem !important;
+}
+
+.qr-view-cell {
+    min-width: 6.25rem;
+    text-align: center;
+    padding: 0.55rem 0.35rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    text-transform: uppercase;
+    min-height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.queue-view-page .log-view-scroll-hint {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .queue-view-page {
+        padding: 1rem 0.75rem 1.5rem;
+    }
+
+    .queue-view-title {
+        font-size: 1.15rem;
+    }
+}
+
+@media print {
+    .queue-view-page {
+        padding: 0;
+        background: #FFFFFF;
+    }
+
+    .queue-view-header {
+        border-bottom: none;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.25rem;
+    }
+
+    .queue-view-page .log-view-scroll-hint {
+        display: none !important;
+    }
+
+    .queue-view-table-wrap {
+        box-shadow: none;
+        border: none;
+        overflow: visible;
+    }
+}
+
 /* ─── Queue Room (ห้องจัดคิว) ─── */
 
 .queue-room {
@@ -2257,6 +2388,125 @@ html.log-view-fit-root {
     outline: 2px solid rgba(37, 99, 235, 0.45);
     outline-offset: -2px;
     background: #FFFFFF;
+}
+
+/* Supervisor row (แถวบนสุด เหนือวันที่) */
+.qr-sup-row {
+    background: #FFFBEB;
+}
+
+.qr-sup-label {
+    font-size: 0.7rem !important;
+    font-weight: 700;
+    color: #92400E !important;
+    background: #FEF3C7 !important;
+    letter-spacing: 0.02em;
+}
+
+.qr-sup-cell {
+    background: #FFFBEB;
+    min-width: 5.5rem;
+    padding: 0 !important;
+    font-weight: 600;
+    text-align: center;
+}
+
+.qr-sup-cell.first-col {
+    background: #FEF3C7;
+}
+
+.qr-sup-input {
+    font-weight: 700;
+    color: #92400E;
+    font-size: 0.8rem;
+}
+
+.qr-sup-input::placeholder {
+    color: #D97706;
+    opacity: 0.45;
+    font-weight: 500;
+}
+
+.qr-view-sup {
+    color: #92400E;
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+.queue-view-page .qr-sup-row,
+.queue-view-page .qr-sup-cell {
+    background: #FFFBEB;
+}
+
+.queue-view-page .qr-sup-label {
+    background: #FEF3C7 !important;
+}
+
+/* Capture root สำหรับดาวน์โหลดรูป — ขนาด/สัดส่วนเดียวกับแท็บเต็มจอ */
+.queue-view-capture {
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    align-items: flex-start !important;
+    font-size: 16px !important;
+}
+
+.queue-view-capture .queue-room-table,
+.queue-view-capture .queue-view-table {
+    width: max-content !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    table-layout: fixed !important;
+    font-size: 0.95rem !important;
+}
+
+.queue-view-capture .qr-col-head,
+.queue-view-capture .qr-cell,
+.queue-view-capture .qr-sup-cell {
+    width: 6.25rem !important;
+    min-width: 6.25rem !important;
+    max-width: 6.25rem !important;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+}
+
+.queue-view-capture .qr-col-head {
+    padding: 0.55rem 0.4rem !important;
+    font-size: 0.9rem !important;
+}
+
+.queue-view-capture .qr-head-date {
+    font-size: 0.88rem !important;
+}
+
+.queue-view-capture .qr-head-shift {
+    font-size: 0.8rem !important;
+}
+
+.queue-view-capture .qr-row-num {
+    width: 2.75rem !important;
+    min-width: 2.75rem !important;
+    max-width: 2.75rem !important;
+    font-size: 0.85rem !important;
+    padding: 0.45rem 0.3rem !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    z-index: auto !important;
+}
+
+.queue-view-capture .qr-view-cell {
+    width: 6.25rem !important;
+    min-width: 6.25rem !important;
+    max-width: 6.25rem !important;
+    min-height: 2.25rem !important;
+    box-sizing: border-box !important;
+}
+
+.queue-view-capture .qr-head-badge {
+    display: none !important;
 }
 
 .queue-source-hint {
