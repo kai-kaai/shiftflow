@@ -758,11 +758,9 @@
 
                 const teamSlug = (team && team.id) ? team.id : String(queueRoomTeamId || 'team');
                 const filename = `Queue_${teamSlug}_${getQueueRoomYearMonth()}.png`;
-                const link = document.createElement('a');
-                link.download = filename;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                showToast('ดาวน์โหลดรูปตารางคิวแล้ว', 'success');
+                await saveCanvasAsPng(canvas, filename, {
+                    successMessage: 'ดาวน์โหลดรูปตารางคิวแล้ว'
+                });
             } catch (err) {
                 console.error('Queue room download error:', err);
                 showToast('เกิดข้อผิดพลาดในการสร้างรูปภาพ: ' + (err.message || err), 'error');
@@ -3952,6 +3950,143 @@
             return clean.replace(/-/g, '');
         }
 
+        // ===== บันทึกรูปจาก canvas (รองรับ iOS/iPad ที่ a.download + data URL ใช้ไม่ได้) =====
+        function isAppleTouchDevice() {
+            const ua = navigator.userAgent || '';
+            if (/iPad|iPhone|iPod/.test(ua)) return true;
+            // iPadOS บางเวอร์ชันรายงานเป็น MacIntel + touch
+            return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
+        }
+
+        function canvasToBlob(canvas, type = 'image/png', quality) {
+            return new Promise((resolve, reject) => {
+                if (canvas.toBlob) {
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('ไม่สามารถสร้างไฟล์รูปได้ (toBlob)'));
+                    }, type, quality);
+                    return;
+                }
+                try {
+                    const dataUrl = canvas.toDataURL(type, quality);
+                    const parts = dataUrl.split(',');
+                    const mime = (parts[0].match(/:(.*?);/) || [])[1] || type;
+                    const bin = atob(parts[1] || '');
+                    const arr = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i);
+                    resolve(new Blob([arr], { type: mime }));
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        }
+
+        function showImageSaveOverlay(url, filename) {
+            const existing = document.getElementById('image-save-overlay');
+            if (existing) existing.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'image-save-overlay';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-label', 'บันทึกรูป');
+            overlay.style.cssText = [
+                'position:fixed', 'inset:0', 'z-index:100000',
+                'background:rgba(15,23,42,0.72)',
+                'display:flex', 'flex-direction:column',
+                'align-items:center', 'justify-content:center',
+                'padding:1rem', 'box-sizing:border-box'
+            ].join(';');
+
+            const card = document.createElement('div');
+            card.style.cssText = [
+                'background:#fff', 'border-radius:12px', 'padding:1rem',
+                'max-width:min(96vw, 720px)', 'max-height:90vh',
+                'overflow:auto', 'box-shadow:0 12px 40px rgba(0,0,0,0.25)',
+                'display:flex', 'flex-direction:column', 'gap:0.75rem', 'align-items:center'
+            ].join(';');
+
+            const hint = document.createElement('p');
+            hint.style.cssText = 'margin:0;font-size:0.95rem;color:#0F172A;text-align:center;line-height:1.45;';
+            hint.textContent = 'กดค้างที่รูป แล้วเลือก「บันทึกรูป」/ Save Image';
+
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = filename || 'exported image';
+            img.style.cssText = 'max-width:100%;height:auto;border:1px solid #E2E8F0;border-radius:8px;';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'btn btn-primary';
+            closeBtn.textContent = 'ปิด';
+            closeBtn.onclick = () => overlay.remove();
+
+            card.appendChild(hint);
+            card.appendChild(img);
+            card.appendChild(closeBtn);
+            overlay.appendChild(card);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+            document.body.appendChild(overlay);
+        }
+
+        /**
+         * บันทึก canvas เป็น PNG
+         * - Desktop: <a download> + blob URL
+         * - iOS/iPad: Web Share API (ชีทบันทึกรูป) → เปิดแท็บใหม่ / overlay กดค้างบันทึก
+         */
+        async function saveCanvasAsPng(canvas, filename, options = {}) {
+            const successMessage = options.successMessage || 'ดาวน์โหลดรูปแล้ว';
+            const blob = await canvasToBlob(canvas, 'image/png');
+            const safeName = filename || `image_${Date.now()}.png`;
+            const file = new File([blob], safeName, { type: 'image/png' });
+            const apple = isAppleTouchDevice();
+
+            if (apple && navigator.canShare) {
+                try {
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: safeName });
+                        showToast('แชร์/บันทึกรูปแล้ว — เลือก Save Image ได้จากชีท', 'success');
+                        return;
+                    }
+                } catch (err) {
+                    if (err && err.name === 'AbortError') {
+                        showToast('ยกเลิกการแชร์รูป', 'warning');
+                        return;
+                    }
+                    // fall through to blob / overlay
+                    console.warn('Web Share failed, falling back:', err);
+                }
+            }
+
+            const url = URL.createObjectURL(blob);
+            try {
+                if (apple) {
+                    const win = window.open(url, '_blank');
+                    if (win) {
+                        showToast('เปิดรูปในแท็บใหม่ — กดค้างที่รูปแล้วเลือกบันทึกรูป', 'success');
+                    } else {
+                        showImageSaveOverlay(url, safeName);
+                        showToast('กดค้างที่รูปแล้วเลือกบันทึกรูป', 'success');
+                    }
+                } else {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = safeName;
+                    a.rel = 'noopener';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    showToast(successMessage, 'success');
+                }
+            } finally {
+                // อย่า revoke เร็วเกิน — แท็บใหม่/overlay ยังใช้อยู่
+                setTimeout(() => {
+                    try { URL.revokeObjectURL(url); } catch (_) { /* ignore */ }
+                }, 60000);
+            }
+        }
+
         // ===== ดาวน์โหลดตาราง Log เป็นรูปภาพ =====
         async function downloadLogAsImage() {
             const btn = document.getElementById('btn-download-log-img');
@@ -3967,9 +4102,10 @@
             btn.innerHTML = '⏳ กำลังสร้างรูป...';
             btn.disabled = true;
 
+            let captureEl = null;
             try {
                 // สร้าง element ชั่วคราวเพื่อ capture ตาราง (ไม่ติด scrollbar)
-                const captureEl = document.createElement('div');
+                captureEl = document.createElement('div');
                 captureEl.style.cssText = [
                     'position: fixed',
                     'top: -9999px',
@@ -3994,24 +4130,22 @@
                     logging: false
                 });
 
-                document.body.removeChild(captureEl);
-
                 // สร้างชื่อไฟล์จากวันที่และกะ
                 const titleText = document.getElementById('hourly-log-title').textContent;
                 const safeTitle = titleText.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_');
                 const timestamp = new Date().toISOString().slice(0, 10);
                 const filename = `Log_${safeTitle || timestamp}.png`;
 
-                // ดาวน์โหลด
-                const link = document.createElement('a');
-                link.download = filename;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-
+                await saveCanvasAsPng(canvas, filename, {
+                    successMessage: 'ดาวน์โหลดรูปตาราง Log แล้ว'
+                });
             } catch (err) {
                 console.error('Download error:', err);
-                alert('เกิดข้อผิดพลาดในการสร้างรูปภาพ: ' + err.message);
+                alert('เกิดข้อผิดพลาดในการสร้างรูปภาพ: ' + (err.message || err));
             } finally {
+                if (captureEl && captureEl.parentNode) {
+                    captureEl.parentNode.removeChild(captureEl);
+                }
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
