@@ -11,6 +11,7 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'shiftflow.db')
 MASTER_LOG_EDIT_PASSWORD = 'admin'
+QUEUE_WORKING_LIMIT = 13
 
 DEFAULT_EMPLOYEES = [
     'BP', 'CQ', 'DY', 'JZ', 'KJ', 'PB', 'PP', 'PR', 'SG', 'SN', 'TH', 'TT', 'TY', 'WE', 'WF', 'YJ', 'YQ'
@@ -106,6 +107,11 @@ def init_db():
             UNIQUE(team_id, year_month)
         )
     ''')
+
+    cursor.execute("PRAGMA table_info(team_month_queues)")
+    queue_plan_columns = [row[1] for row in cursor.fetchall()]
+    if 'roster_json' not in queue_plan_columns:
+        cursor.execute("ALTER TABLE team_month_queues ADD COLUMN roster_json TEXT")
 
     for shift_type, template_data in DEFAULT_LOG_TEMPLATES.items():
         layout_json = json.dumps(template_data)
@@ -374,6 +380,94 @@ def _normalize_queue_columns(raw_columns):
     return normalized
 
 
+def _normalize_roster(raw_roster):
+    """Normalize roster payload to [{initials, working}]. Rejects more than 13 working."""
+    if raw_roster is None:
+        return [], None
+    if not isinstance(raw_roster, list):
+        return None, "roster ต้องเป็นรายการ"
+    seen = set()
+    normalized = []
+    working_count = 0
+    for item in raw_roster:
+        if isinstance(item, str):
+            initials = item.strip().upper()
+            working = False
+        elif isinstance(item, dict):
+            initials = str(item.get("initials") or "").strip().upper()
+            working = bool(item.get("working"))
+        else:
+            continue
+        if not initials or initials in seen:
+            continue
+        seen.add(initials)
+        if working:
+            working_count += 1
+            if working_count > QUEUE_WORKING_LIMIT:
+                return None, f"เลือกคนทำงานได้สูงสุด {QUEUE_WORKING_LIMIT} คน"
+        normalized.append({"initials": initials, "working": working})
+    return normalized, None
+
+
+def _parse_saved_roster(raw_json):
+    """Return list if roster was saved, or None if this month has no roster yet."""
+    if raw_json is None or raw_json == "":
+        return None
+    try:
+        data = json.loads(raw_json)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, list):
+        return None
+    roster, err = _normalize_roster(data)
+    if err:
+        return None
+    return roster
+
+
+def _row_saved_roster(row):
+    if row is None:
+        return None
+    try:
+        keys = row.keys()
+    except Exception:
+        return None
+    if "roster_json" not in keys:
+        return None
+    return _parse_saved_roster(row["roster_json"])
+
+
+def _columns_from_row(row):
+    try:
+        columns = json.loads(row["columns_json"] or "[]")
+    except (TypeError, json.JSONDecodeError):
+        columns = []
+    return columns if isinstance(columns, list) else []
+
+
+def _find_previous_roster(cursor, team_id, year_month):
+    cursor.execute(
+        '''SELECT year_month, roster_json FROM team_month_queues
+           WHERE team_id = ? AND year_month < ?
+             AND roster_json IS NOT NULL AND roster_json != ''
+           ORDER BY year_month DESC''',
+        (team_id, year_month)
+    )
+    for prev in cursor.fetchall():
+        roster = _parse_saved_roster(prev["roster_json"])
+        if roster is None:
+            continue
+        return roster, prev["year_month"]
+    return [], None
+
+
+def _roster_for_get(cursor, team_id, year_month, row):
+    saved = _row_saved_roster(row)
+    if saved is not None:
+        return saved, None
+    return _find_previous_roster(cursor, team_id, year_month)
+
+
 @app.route('/api/team-month-queues', methods=['GET'])
 def get_team_month_queues():
     team_id = (request.args.get('team_id') or '').strip()
@@ -388,21 +482,22 @@ def get_team_month_queues():
                 (team_id, year_month)
             )
             row = cursor.fetchone()
+            roster, copied_from = _roster_for_get(cursor, team_id, year_month, row)
             if not row:
                 return jsonify({
                     "team_id": team_id,
                     "year_month": year_month,
                     "columns": [],
+                    "roster": roster,
+                    "roster_copied_from": copied_from,
                     "updated_at": None
                 })
-            try:
-                columns = json.loads(row["columns_json"] or "[]")
-            except Exception:
-                columns = []
             return jsonify({
                 "team_id": row["team_id"],
                 "year_month": row["year_month"],
-                "columns": columns if isinstance(columns, list) else [],
+                "columns": _columns_from_row(row),
+                "roster": roster,
+                "roster_copied_from": copied_from,
                 "updated_at": row["updated_at"]
             })
 
@@ -417,14 +512,12 @@ def get_team_month_queues():
 
         plans = []
         for row in cursor.fetchall():
-            try:
-                columns = json.loads(row["columns_json"] or "[]")
-            except Exception:
-                columns = []
+            saved_roster = _row_saved_roster(row)
             plans.append({
                 "team_id": row["team_id"],
                 "year_month": row["year_month"],
-                "columns": columns if isinstance(columns, list) else [],
+                "columns": _columns_from_row(row),
+                "roster": saved_roster if saved_roster is not None else [],
                 "updated_at": row["updated_at"]
             })
         return jsonify({"plans": plans})
@@ -445,29 +538,66 @@ def put_team_month_queues():
         return jsonify({"error": "year_month ต้องเป็นรูปแบบ YYYY-MM"}), 400
 
     columns = _normalize_queue_columns(raw_columns)
+    roster_provided = 'roster' in data
+    roster = None
+    if roster_provided:
+        roster, roster_error = _normalize_roster(data.get('roster'))
+        if roster_error:
+            return jsonify({"error": roster_error}), 400
+
     all_initials = []
     for col in columns:
         all_initials.extend(col["queue"])
+    if roster:
+        all_initials.extend(item["initials"] for item in roster)
     ensure_employees_exist(all_initials)
 
     updated_at = datetime.datetime.now().isoformat(timespec='seconds')
     conn = get_db()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            '''INSERT INTO team_month_queues (team_id, year_month, columns_json, updated_at)
-               VALUES (?, ?, ?, ?)
-               ON CONFLICT(team_id, year_month) DO UPDATE SET
-                 columns_json = excluded.columns_json,
-                 updated_at = excluded.updated_at''',
-            (team_id, year_month, json.dumps(columns, ensure_ascii=False), updated_at)
-        )
+        if roster_provided:
+            cursor.execute(
+                '''INSERT INTO team_month_queues (team_id, year_month, columns_json, roster_json, updated_at)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(team_id, year_month) DO UPDATE SET
+                     columns_json = excluded.columns_json,
+                     roster_json = excluded.roster_json,
+                     updated_at = excluded.updated_at''',
+                (
+                    team_id,
+                    year_month,
+                    json.dumps(columns, ensure_ascii=False),
+                    json.dumps(roster, ensure_ascii=False),
+                    updated_at
+                )
+            )
+        else:
+            cursor.execute(
+                '''INSERT INTO team_month_queues (team_id, year_month, columns_json, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(team_id, year_month) DO UPDATE SET
+                     columns_json = excluded.columns_json,
+                     updated_at = excluded.updated_at''',
+                (team_id, year_month, json.dumps(columns, ensure_ascii=False), updated_at)
+            )
+            cursor.execute(
+                "SELECT roster_json FROM team_month_queues WHERE team_id = ? AND year_month = ?",
+                (team_id, year_month)
+            )
+            saved_row = cursor.fetchone()
+            roster = _parse_saved_roster(saved_row["roster_json"]) if saved_row else None
+            if roster is None:
+                roster = []
+
         conn.commit()
         return jsonify({
             "success": True,
             "team_id": team_id,
             "year_month": year_month,
             "columns": columns,
+            "roster": roster,
+            "roster_copied_from": None,
             "updated_at": updated_at
         })
     except Exception as e:

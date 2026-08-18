@@ -129,7 +129,7 @@
                         <button type="button" class="btn btn-secondary btn-accent-warning" id="btn-download-queue-img" onclick="downloadQueueRoomAsImage()" title="บันทึกตารางคิวเป็นรูปภาพ PNG">
                             📥 ดาวน์โหลดรูป
                         </button>
-                        <button type="button" class="btn btn-secondary" onclick="runQueueRoomQue()" title="ใช้คอลัมน์แรกหมุนสร้างคิววันทำงานที่เหลือ">
+                        <button type="button" class="btn btn-secondary" onclick="runQueueRoomQue()" title="พิมพ์ชื่อแรกในช่องแรก แล้วเติมทั้งเดือนจาก 13 คนที่ทำงาน">
                             ▶ Run Que
                         </button>
                         <button type="button" class="btn btn-primary" onclick="saveQueueRoomPlan()">
@@ -139,16 +139,37 @@
                 </div>
 
                 <p class="queue-room-hint" id="queue-room-hint">
-                    ใส่ลำดับคิวใน <strong>คอลัมน์แรก</strong> (วันทำงานแรกของเดือน) แล้วกด <strong>Run Que</strong> เพื่อหมุนซ้าย 1 คนสร้างคอลัมน์ที่เหลือ — แก้ไขทีหลังได้ แล้วกดบันทึก
+                    ใส่รายชื่อทีมในแผงซ้าย เลือกคนทำงาน <strong>13 คน</strong> แล้วจัดลำดับ — พิมพ์ชื่อคิวแรกในช่องแรกของคอลัมน์แรก แล้วกด <strong>Run Que</strong> เพื่อเติมทั้งเดือน คนไม่ทำงานแสดงเป็น <strong>(ชื่อ)</strong>
                 </p>
                 <p class="queue-room-meta" id="queue-room-meta"></p>
 
-                <div class="queue-room-table-wrap" id="queue-room-table-wrap">
-                    <div class="queue-room-empty" id="queue-room-empty">ไม่มีวันทำงานของทีมนี้ในเดือนที่เลือก</div>
-                    <table class="queue-room-table" id="queue-room-table" style="display: none;">
-                        <thead id="queue-room-thead"></thead>
-                        <tbody id="queue-room-tbody"></tbody>
-                    </table>
+                <div class="queue-room-body">
+                    <aside class="queue-roster-panel" id="queue-roster-panel">
+                        <div class="queue-roster-header">
+                            <div>
+                                <div class="queue-roster-title">สมาชิกทีม</div>
+                                <div class="queue-roster-count" id="queue-roster-count">ทำงาน 0 / 0</div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm queue-roster-toggle" id="queue-roster-toggle" onclick="toggleQueueRosterPanel()" aria-expanded="true">
+                                ย่อ
+                            </button>
+                        </div>
+                        <p class="queue-roster-copy-hint" id="queue-roster-copy-hint" hidden></p>
+                        <form class="queue-roster-add" onsubmit="return submitQueueRosterAdd(event)">
+                            <input type="text" id="queue-roster-add-input" class="form-input mono" maxlength="12" placeholder="เพิ่มชื่อย่อ" autocomplete="off" spellcheck="false" aria-label="ชื่อย่อพนักงาน">
+                            <button type="submit" class="btn btn-primary btn-sm">เพิ่ม</button>
+                        </form>
+                        <ul class="queue-roster-list" id="queue-roster-list"></ul>
+                        <p class="queue-roster-empty" id="queue-roster-empty">ยังไม่มีรายชื่อในทีมนี้ — เพิ่มชื่อย่อด้านบน</p>
+                    </aside>
+
+                    <div class="queue-room-table-wrap" id="queue-room-table-wrap">
+                        <div class="queue-room-empty" id="queue-room-empty">ไม่มีวันทำงานของทีมนี้ในเดือนที่เลือก</div>
+                        <table class="queue-room-table" id="queue-room-table" style="display: none;">
+                            <thead id="queue-room-thead"></thead>
+                            <tbody id="queue-room-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -325,6 +346,9 @@
         let queueRoomColumns = [];
         let queueRoomUpdatedAt = null;
         let queueRoomDirty = false;
+        let queueRoomRoster = [];
+        let queueRoomRosterCopiedFrom = null;
+        let queueRoomRosterCollapsed = typeof window !== 'undefined' && window.innerWidth <= 768;
         // Cache: `${teamId}:${YYYY-MM}` → columns array (saved plan, may be empty)
         const teamMonthQueuePlans = {};
         
@@ -487,7 +511,7 @@
                 subtitle.innerText = 'ดูประวัติเวรและสร้างคิวจัดเวรพนักงาน';
             } else if (tabName === 'queueroom') {
                 title.innerText = 'ห้องจัดคิว';
-                subtitle.innerText = 'วางแผนลำดับคิวทั้งเดือนแยกตามทีมสี (suggestion สำหรับสร้างเวร)';
+                subtitle.innerText = 'รายชื่อทีม + วางแผนลำดับคิวทั้งเดือน (suggestion สำหรับสร้างเวร)';
                 initQueueRoomIfNeeded();
             } else if (tabName === 'shiftroom') {
                 title.innerText = `ห้องจัดเวรประจำวันที่ ${selectedShift ? selectedShift.date_display : ''}`;
@@ -776,7 +800,163 @@
 
         function initQueueRoomIfNeeded() {
             renderQueueRoomTeamTabs();
+            if (queueRoomDirty) {
+                renderQueueRoster();
+                return;
+            }
             loadQueueRoomPlan();
+        }
+
+        function normalizeQueueRoster(rawRoster) {
+            const seen = new Set();
+            const result = [];
+            (rawRoster || []).forEach(item => {
+                const initials = String((item && item.initials) || item || '').trim().toUpperCase();
+                if (!initials || seen.has(initials)) return;
+                seen.add(initials);
+                result.push({
+                    initials,
+                    working: !!(item && item.working)
+                });
+            });
+            return result;
+        }
+
+        function countWorkingRoster(roster = queueRoomRoster) {
+            return roster.filter(person => person.working).length;
+        }
+
+        function toggleQueueRosterPanel() {
+            queueRoomRosterCollapsed = !queueRoomRosterCollapsed;
+            const panel = document.getElementById('queue-roster-panel');
+            const btn = document.getElementById('queue-roster-toggle');
+            if (panel) panel.classList.toggle('collapsed', queueRoomRosterCollapsed);
+            if (btn) {
+                btn.innerText = queueRoomRosterCollapsed ? 'แสดง' : 'ย่อ';
+                btn.setAttribute('aria-expanded', queueRoomRosterCollapsed ? 'false' : 'true');
+            }
+        }
+
+        function submitQueueRosterAdd(event) {
+            event.preventDefault();
+            const input = document.getElementById('queue-roster-add-input');
+            const initials = input ? String(input.value || '').trim().toUpperCase() : '';
+            if (!initials) {
+                showToast('กรุณาใส่ชื่อย่อ', 'warning');
+                return false;
+            }
+            if (queueRoomRoster.some(person => person.initials === initials)) {
+                showToast(`มี ${initials} อยู่ในรายชื่อทีมนี้แล้ว`, 'warning');
+                return false;
+            }
+            queueRoomRoster.push({ initials, working: false });
+            if (input) input.value = '';
+            queueRoomDirty = true;
+            renderQueueRoster();
+            updateQueueRoomMeta();
+            return false;
+        }
+
+        function toggleQueueRosterWorking(index) {
+            const person = queueRoomRoster[index];
+            if (!person) return;
+            if (!person.working && countWorkingRoster() >= QUEUE_WORKING_LIMIT) {
+                showToast(`เลือกคนทำงานได้สูงสุด ${QUEUE_WORKING_LIMIT} คน`, 'warning');
+                return;
+            }
+            person.working = !person.working;
+            queueRoomDirty = true;
+            renderQueueRoster();
+            updateQueueRoomMeta();
+        }
+
+        function moveQueueRoster(index, delta) {
+            const nextIndex = index + delta;
+            if (nextIndex < 0 || nextIndex >= queueRoomRoster.length) return;
+            const current = queueRoomRoster[index];
+            queueRoomRoster[index] = queueRoomRoster[nextIndex];
+            queueRoomRoster[nextIndex] = current;
+            queueRoomDirty = true;
+            renderQueueRoster();
+            updateQueueRoomMeta();
+        }
+
+        function removeQueueRosterMember(index) {
+            const person = queueRoomRoster[index];
+            if (!person) return;
+            queueRoomRoster.splice(index, 1);
+            queueRoomDirty = true;
+            renderQueueRoster();
+            updateQueueRoomMeta();
+        }
+
+        function formatCopiedMonthLabel(yearMonth) {
+            if (!yearMonth || String(yearMonth).length !== 7) return yearMonth || '';
+            const [yearStr, monthStr] = String(yearMonth).split('-');
+            const monthNum = parseInt(monthStr, 10);
+            const monthName = THAI_MONTHS_FULL[monthNum - 1] || monthStr;
+            return `${monthName} ${yearStr}`;
+        }
+
+        function renderQueueRoster() {
+            const list = document.getElementById('queue-roster-list');
+            const empty = document.getElementById('queue-roster-empty');
+            const countEl = document.getElementById('queue-roster-count');
+            const copyHint = document.getElementById('queue-roster-copy-hint');
+            const panel = document.getElementById('queue-roster-panel');
+            const toggleBtn = document.getElementById('queue-roster-toggle');
+            if (!list) return;
+
+            const workingCount = countWorkingRoster();
+            const total = queueRoomRoster.length;
+            if (countEl) {
+                countEl.innerText = `ทำงาน ${workingCount} / ${total}`;
+                countEl.classList.toggle('is-ready', workingCount === QUEUE_WORKING_LIMIT);
+                countEl.classList.toggle('is-over', workingCount > QUEUE_WORKING_LIMIT);
+            }
+
+            if (copyHint) {
+                if (queueRoomRosterCopiedFrom) {
+                    copyHint.hidden = false;
+                    copyHint.innerText = `คัดลอกรายชื่อจาก ${formatCopiedMonthLabel(queueRoomRosterCopiedFrom)} · ยังไม่บันทึกเดือนนี้`;
+                } else {
+                    copyHint.hidden = true;
+                    copyHint.innerText = '';
+                }
+            }
+
+            if (panel) panel.classList.toggle('collapsed', queueRoomRosterCollapsed);
+            if (toggleBtn) {
+                toggleBtn.innerText = queueRoomRosterCollapsed ? 'แสดง' : 'ย่อ';
+                toggleBtn.setAttribute('aria-expanded', queueRoomRosterCollapsed ? 'false' : 'true');
+            }
+
+            if (!queueRoomRoster.length) {
+                list.innerHTML = '';
+                if (empty) empty.style.display = 'block';
+                return;
+            }
+            if (empty) empty.style.display = 'none';
+
+            const workingFull = workingCount >= QUEUE_WORKING_LIMIT;
+            list.innerHTML = queueRoomRoster.map((person, index) => {
+                const displayName = person.working ? person.initials : `(${person.initials})`;
+                const canEnable = person.working || !workingFull;
+                return `<li class="queue-roster-item${person.working ? '' : ' is-off'}">
+                    <div class="queue-roster-move">
+                        <button type="button" class="queue-roster-icon-btn" onclick="moveQueueRoster(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="เลื่อนขึ้น" aria-label="เลื่อน ${person.initials} ขึ้น">↑</button>
+                        <button type="button" class="queue-roster-icon-btn" onclick="moveQueueRoster(${index}, 1)" ${index === queueRoomRoster.length - 1 ? 'disabled' : ''} title="เลื่อนลง" aria-label="เลื่อน ${person.initials} ลง">↓</button>
+                    </div>
+                    <span class="queue-roster-name mono">${escapeHtmlAttr(displayName)}</span>
+                    <label class="queue-roster-work">
+                        <input type="checkbox" ${person.working ? 'checked' : ''} ${canEnable ? '' : 'disabled'}
+                            onchange="toggleQueueRosterWorking(${index})"
+                            aria-label="ทำงานเดือนนี้ ${person.initials}">
+                        <span>ทำงาน</span>
+                    </label>
+                    <button type="button" class="queue-roster-icon-btn queue-roster-remove" onclick="removeQueueRosterMember(${index})" title="ลบออกจากเดือนนี้" aria-label="ลบ ${person.initials}">✕</button>
+                </li>`;
+            }).join('');
         }
 
         function renderQueueRoomTeamTabs() {
@@ -838,7 +1018,12 @@
             const data = await res.json();
             const columns = Array.isArray(data.columns) ? data.columns : [];
             teamMonthQueuePlans[key] = columns;
-            return { columns, updated_at: data.updated_at || null };
+            return {
+                columns,
+                updated_at: data.updated_at || null,
+                roster: Array.isArray(data.roster) ? data.roster : [],
+                roster_copied_from: data.roster_copied_from || null
+            };
         }
 
         async function ensureTeamMonthPlan(teamId, yearMonth) {
@@ -857,10 +1042,13 @@
 
             showLoading(true);
             try {
-                const { columns: saved, updated_at } = await fetchTeamMonthPlan(queueRoomTeamId, yearMonth);
+                const { columns: saved, updated_at, roster, roster_copied_from } = await fetchTeamMonthPlan(queueRoomTeamId, yearMonth);
                 queueRoomColumns = mergeTeamWorkColumns(skeleton, saved);
                 queueRoomUpdatedAt = updated_at;
+                queueRoomRoster = normalizeQueueRoster(roster);
+                queueRoomRosterCopiedFrom = roster_copied_from;
                 queueRoomDirty = false;
+                renderQueueRoster();
                 renderQueueRoomTable();
                 updateQueueRoomMeta();
             } catch (err) {
@@ -868,6 +1056,9 @@
                 showToast(err.message || 'โหลดห้องจัดคิวไม่สำเร็จ', 'error');
                 queueRoomColumns = mergeTeamWorkColumns(skeleton, []);
                 queueRoomUpdatedAt = null;
+                queueRoomRoster = [];
+                queueRoomRosterCopiedFrom = null;
+                renderQueueRoster();
                 renderQueueRoomTable();
                 updateQueueRoomMeta();
             } finally {
@@ -885,7 +1076,11 @@
                 ? `บันทึกล่าสุด: ${queueRoomUpdatedAt}`
                 : 'ยังไม่เคยบันทึกแผนเดือนนี้';
             const dirtyHint = queueRoomDirty ? ' · มีการแก้ไขที่ยังไม่บันทึก' : '';
-            meta.innerHTML = `${teamLabel} · ${colCount} คอลัมน์ (วันทำงาน) · ${savedHint}${dirtyHint}`;
+            const copyHint = queueRoomRosterCopiedFrom
+                ? ` · รายชื่อจาก ${formatCopiedMonthLabel(queueRoomRosterCopiedFrom)}`
+                : '';
+            const workingCount = countWorkingRoster();
+            meta.innerHTML = `${teamLabel} · ${colCount} คอลัมน์ · คนทำงาน ${workingCount}/${QUEUE_WORKING_LIMIT} · ${savedHint}${copyHint}${dirtyHint}`;
         }
 
         function getQueueRoomRowCount() {
@@ -938,7 +1133,7 @@
                 return `<th class="qr-col-head${firstClass}" data-col="${idx}">
                     <div class="qr-head-date">${h.dateLine}</div>
                     <div class="qr-head-shift">${h.shiftLine}</div>
-                    ${idx === 0 ? '<div class="qr-head-badge">ใส่คิวก่อน</div>' : ''}
+                    ${idx === 0 ? '<div class="qr-head-badge">พิมพ์ชื่อแรก</div>' : ''}
                 </th>`;
             }).join('');
 
@@ -958,10 +1153,13 @@
                 const cells = queueRoomColumns.map((col, cIdx) => {
                     const val = (col.queue && col.queue[r]) ? col.queue[r] : '';
                     const firstClass = cIdx === 0 ? ' first-col' : '';
-                    return `<td class="qr-cell${firstClass}">
+                    const startClass = (cIdx === 0 && r === 0) ? ' qr-start-cell' : '';
+                    const placeholder = (cIdx === 0 && r === 0) ? 'ชื่อแรก' : '';
+                    return `<td class="qr-cell${firstClass}${startClass}">
                         <input type="text" class="qr-input mono" maxlength="12"
                             data-col="${cIdx}" data-row="${r}"
                             value="${escapeHtmlAttr(val)}"
+                            placeholder="${placeholder}"
                             oninput="onQueueRoomCellInput(${cIdx}, ${r}, this.value)"
                             autocomplete="off" spellcheck="false">
                     </td>`;
@@ -1029,18 +1227,36 @@
                 return;
             }
             syncQueueRoomColumnsFromDom();
-            const base = queueRoomColumns[0].queue || [];
-            if (base.length === 0) {
-                showToast('กรุณาใส่ลำดับคิวในคอลัมน์แรกก่อน แล้วค่อยกด Run Que', 'warning');
+
+            const working = typeof getWorkingRosterInitials === 'function'
+                ? getWorkingRosterInitials(queueRoomRoster)
+                : queueRoomRoster.filter(person => person.working).map(person => person.initials);
+            if (working.length !== QUEUE_WORKING_LIMIT) {
+                showToast(`ต้องเลือกคนทำงานให้ครบ ${QUEUE_WORKING_LIMIT} คนก่อน (ตอนนี้ ${working.length} คน)`, 'warning');
+                return;
+            }
+
+            const start = String((queueRoomColumns[0].queue || [])[0] || '').trim().toUpperCase();
+            if (!start) {
+                showToast('กรุณาใส่ชื่อคิวแรกในช่องแรกของคอลัมน์แรก แล้วค่อยกด Run Que', 'warning');
+                return;
+            }
+            if (!working.includes(start)) {
+                showToast(`ชื่อ ${start} ไม่ได้อยู่ใน ${QUEUE_WORKING_LIMIT} คนที่ทำงานเดือนนี้`, 'warning');
                 return;
             }
 
             const hasLaterData = queueRoomColumns.slice(1).some(c => c.queue && c.queue.length > 0);
-            if (hasLaterData && !confirm('คอลัมน์วันทำงานที่เหลือมีข้อมูลอยู่แล้ว จะเขียนทับด้วยคิวที่หมุนจากคอลัมน์แรกหรือไม่?')) {
+            const firstColRest = (queueRoomColumns[0].queue || []).slice(1).some(name => String(name || '').trim());
+            if ((hasLaterData || firstColRest) && !confirm('มีคิวในตารางอยู่แล้ว จะเขียนทับทั้งเดือนด้วย 13 คนที่ทำงานหรือไม่?')) {
                 return;
             }
 
-            let prev = base.slice();
+            const rotated = typeof rotateQueueToStart === 'function'
+                ? rotateQueueToStart(working, start)
+                : working.slice();
+            queueRoomColumns[0].queue = rotated.slice();
+            let prev = rotated.slice();
             for (let i = 1; i < queueRoomColumns.length; i += 1) {
                 prev = rotateQueueLeft1(prev);
                 queueRoomColumns[i].queue = prev.slice();
@@ -1048,7 +1264,7 @@
             queueRoomDirty = true;
             renderQueueRoomTable();
             updateQueueRoomMeta();
-            showToast(`Run Que เสร็จแล้ว — สร้างคิว ${queueRoomColumns.length - 1} คอลัมน์ที่เหลือ`, 'success');
+            showToast(`Run Que เสร็จแล้ว — เริ่มที่ ${start} ทั้ง ${queueRoomColumns.length} คอลัมน์`, 'success');
         }
 
         function saveQueueRoomPlan() {
@@ -1067,6 +1283,10 @@
                     shift_type: col.shift_type,
                     queue: col.queue || [],
                     supervisor: col.supervisor || ''
+                })),
+                roster: queueRoomRoster.map(person => ({
+                    initials: person.initials,
+                    working: !!person.working
                 }))
             };
 
@@ -1081,7 +1301,12 @@
                 if (data.error) throw new Error(data.error);
                 teamMonthQueuePlans[planCacheKey(queueRoomTeamId, yearMonth)] = data.columns || payload.columns;
                 queueRoomUpdatedAt = data.updated_at || null;
+                if (Array.isArray(data.roster)) {
+                    queueRoomRoster = normalizeQueueRoster(data.roster);
+                }
+                queueRoomRosterCopiedFrom = null;
                 queueRoomDirty = false;
+                renderQueueRoster();
                 // refresh roster in case new initials were added
                 return fetch('/api/employees').then(r => r.json()).then(empData => {
                     roster = empData.employees || roster;

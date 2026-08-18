@@ -228,6 +228,25 @@ function rotateQueueLeft1(queue) {
     return next;
 }
 
+/** หมุนคิวให้ชื่อที่กำหนดอยู่ตำแหน่งแรก ถ้าไม่มีชื่อนั้นคืนคิวเดิม */
+function rotateQueueToStart(queue, startName) {
+    if (!queue || queue.length === 0) return [];
+    const start = String(startName || '').trim().toUpperCase();
+    if (!start) return queue.slice();
+    const idx = queue.findIndex(name => String(name).trim().toUpperCase() === start);
+    if (idx <= 0) return queue.slice();
+    return queue.slice(idx).concat(queue.slice(0, idx));
+}
+
+const QUEUE_WORKING_LIMIT = 13;
+
+function getWorkingRosterInitials(roster) {
+    return (roster || [])
+        .filter(person => person && person.working)
+        .map(person => String(person.initials || '').trim().toUpperCase())
+        .filter(Boolean);
+}
+
 /**
  * รวมโครงคอลัมน์จากปฏิทินทีม กับข้อมูลที่บันทึกไว้
  * โครงจากปฏิทินเป็น source of truth ว่ามีกี่วันทำงาน
