@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v=static_v) }}">
 </head>
 <body class="queue-view-page">
 
@@ -30,7 +30,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/team_schedule.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/team_schedule.js', v=static_v) }}"></script>
     <script>
         const THAI_MONTHS_FULL = [
             'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',

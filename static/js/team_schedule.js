@@ -238,7 +238,8 @@ function rotateQueueToStart(queue, startName) {
     return queue.slice(idx).concat(queue.slice(0, idx));
 }
 
-const QUEUE_WORKING_LIMIT = 13;
+// ต้องเป็น window.* — iOS Safari/Chrome มองไม่เห็น top-level const จากไฟล์อื่น
+window.QUEUE_WORKING_LIMIT = 13;
 
 function getWorkingRosterInitials(roster) {
     return (roster || [])

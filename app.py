@@ -12,6 +12,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'shiftflow.db')
 MASTER_LOG_EDIT_PASSWORD = 'admin'
 QUEUE_WORKING_LIMIT = 13
+# เปลี่ยนค่านี้เมื่อแก้ static เพื่อให้ iOS ทิ้งแคชไฟล์เก่า
+STATIC_ASSET_VERSION = '20260818a'
+
+
+@app.context_processor
+def inject_static_version():
+    return {'static_v': STATIC_ASSET_VERSION}
 
 DEFAULT_EMPLOYEES = [
     'BP', 'CQ', 'DY', 'JZ', 'KJ', 'PB', 'PP', 'PR', 'SG', 'SN', 'TH', 'TT', 'TY', 'WE', 'WF', 'YJ', 'YQ'

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v=static_v) }}">
     <!-- html2canvas: แปลงตาราง HTML เป็นรูปภาพ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
@@ -329,9 +329,10 @@
         <div class="spinner"></div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/team_schedule.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/team_schedule.js', v=static_v) }}"></script>
     <!-- Interactive Workspace logic -->
     <script>
+        var QUEUE_WORKING_LIMIT = window.QUEUE_WORKING_LIMIT || 13;
         let roster = [];
         let shifts = [];
         let activeTab = 'dashboard';
