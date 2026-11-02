@@ -1959,3 +1959,89 @@ DEFAULT_LOG_TEMPLATES = {
         ]
     }
 }
+
+
+# Keep the original layouts intact for shifts before the effective date.
+MASTER_LOG_EFFECTIVE_DATE = '2026-11-01'
+
+
+def _build_november_2026_templates():
+    import copy
+
+    templates = copy.deepcopy(DEFAULT_LOG_TEMPLATES)
+    morning = templates['M8/A14']
+    morning['display_hour_count'] = 14
+    for row in morning['rows']:
+        for cell in row['cells']:
+            cell['value'] = cell['value'].replace('GMC+F2', 'GMC')
+
+    def fdo_row(slot_id, values, hours, start=0, background='#BFBFBF'):
+        return {
+            'slot': slot_id.replace('FDO', 'FDO '), 'slot_id': slot_id,
+            'slot_bg': '#999999', 'employee_bg': '#999999',
+            'cells': [
+                {'value': values.get(i, ''), 'bg_color': background if i >= start else None}
+                for i in range(hours)
+            ]
+        }
+
+    # F1/F2 duties are now shared by three FDO positions.
+    morning['rows'] = [row for row in morning['rows'] if row['slot_id'] not in ('FDO1', 'FDO2')]
+    morning['rows'][-1:-1] = [
+        fdo_row('FDO1', {0: 'F1', 1: 'F2', 3: 'F1', 4: 'F2', 6: 'F1', 7: 'F2', 9: 'F2'}, 14),
+        fdo_row('FDO2', {1: 'F1', 2: 'F2', 4: 'F1', 5: 'F2', 7: 'F1', 8: 'F2', 9: 'F1', 10: 'F2'}, 14),
+        fdo_row('FDO3', {0: 'F2', 2: 'F1', 3: 'F2', 5: 'F1', 6: 'F2', 8: 'F1', 10: 'F1'}, 14),
+    ]
+
+    for row in morning['rows']:
+        if row['slot_id'].startswith('FDO'):
+            for cell in row['cells'][12:]:
+                cell['bg_color'] = None
+
+    an = templates['A+N']
+    rows = {row['slot_id']: row for row in an['rows']}
+    afternoon_values = [
+        ['GNN', 'CDC', 'LCL', '', '', ''],
+        ['GMC', 'LCL', 'CDC', '', '', ''],
+        ['', 'GMC', 'GND', 'LCL', '', ''],
+        ['', 'GND', 'GMC', 'GND', '', ''],
+        ['', '', '', 'GMC', 'LCL+CDC', 'GND+GMC'],
+        ['', '', '', 'CDC', 'GND+GMC', 'LCL+CDC'],
+    ]
+    active_hours = [{0, 1}, {0, 1, 2}, {1, 2, 3}, {1, 2, 3}, {3, 4, 5}, {3, 4, 5}]
+    afternoon = []
+    for idx, values in enumerate(afternoon_values, 1):
+        row = copy.deepcopy(rows['A1'])
+        row.update(slot=str(idx), slot_id=f'A{idx}')
+        row['cells'] = [
+            {'value': values[i] if i < 6 else '',
+             'bg_color': ('#EA9999' if i in active_hours[idx - 1] else '#F4CCCC') if i < 6 else None}
+            for i in range(13)
+        ]
+        afternoon.append(row)
+    fdo_a = copy.deepcopy(rows['FDO A'])
+    fdo_a['cells'] = [
+        {'value': 'FDO' if 1 <= i <= 4 else '',
+         'bg_color': ('#999999' if 1 <= i <= 4 else '#CCCCCC') if i < 6 else None}
+        for i in range(13)
+    ]
+    night = [copy.deepcopy(rows[f'N{i}']) for i in range(1, 8)]
+    night[2]['cells'][7]['value'] = 'GMC'
+    night[2]['cells'][10]['value'] = ''
+    night[3]['cells'][6]['value'] = 'GMC'
+    night[3]['cells'][8]['value'] = 'CDC+GMC'
+    an['rows'] = afternoon + [fdo_a] + night + [
+        fdo_row('FDO1', {3: 'FDO', 4: 'FDO', 11: 'FDO', 12: 'FDO'}, 13, 3, '#CCCCCC'),
+        fdo_row('FDO2', {5: 'FDO', 6: 'FDO', 7: 'FDO', 8: 'FDO'}, 13, 3, '#CCCCCC'),
+        fdo_row('FDO3', {9: 'FDO', 10: 'FDO', 11: 'FDO', 12: 'FDO'}, 13, 3, '#CCCCCC'),
+        copy.deepcopy(rows['W/S N']),
+    ]
+    for row in an['rows']:
+        if row['slot_id'].startswith('FDO') and row['slot_id'] != 'FDO A':
+            for cell in row['cells']:
+                if cell['value']:
+                    cell['bg_color'] = '#999999'
+    return templates
+
+
+NOVEMBER_2026_LOG_TEMPLATES = _build_november_2026_templates()

@@ -175,7 +175,7 @@ function buildTeamConfigEntry(options) {
  * รายการวันทำงาน (คอลัมน์) ของทีมในเดือนที่กำหนด
  * เรียงตามวันที่ แล้วกะเช้า (M8/A14) ก่อนบ่ายดึก (A+N)
  */
-function listTeamWorkColumns(teamId, year, month) {
+function listTeamWorkColumns(teamId, year, month, shiftTypeFilter = '') {
     if (!teamId || !year || !month) return [];
 
     const y = parseInt(year, 10);
@@ -187,7 +187,7 @@ function listTeamWorkColumns(teamId, year, month) {
 
     for (let day = 1; day <= daysInMonth; day += 1) {
         const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        ['M8/A14', 'A+N'].forEach(shiftType => {
+        ['M8/A14', 'A+N'].filter(type => !shiftTypeFilter || type === shiftTypeFilter).forEach(shiftType => {
             if (getTeamForDate(dateStr, shiftType) === teamId) {
                 columns.push({
                     date: dateStr,
@@ -240,6 +240,18 @@ function rotateQueueToStart(queue, startName) {
 
 // ต้องเป็น window.* — iOS Safari/Chrome มองไม่เห็น top-level const จากไฟล์อื่น
 window.QUEUE_WORKING_LIMIT = 13;
+
+function usesNovemberMasterLog(dateStr) {
+    return String(dateStr || '') >= '2026-11-01';
+}
+
+function getQueueWorkingLimit(dateStr, shiftType) {
+    return usesNovemberMasterLog(dateStr) && shiftType === 'A+N' ? 14 : 13;
+}
+
+function getQueueShiftGroup(yearMonth, shiftType) {
+    return yearMonth >= '2026-11' ? (shiftType || 'M8/A14') : '';
+}
 
 function getWorkingRosterInitials(roster) {
     return (roster || [])

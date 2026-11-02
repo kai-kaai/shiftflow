@@ -122,6 +122,12 @@
                     <div class="queue-room-team-tabs" id="queue-room-team-tabs">
                         <!-- Filled dynamically from TEAM_SCHEDULE -->
                     </div>
+                    <label id="queue-room-shift-label">กะ
+                        <select id="queue-room-shift" class="form-input" onchange="changeQueueRoomShift(this.value)">
+                            <option value="M8/A14">M8/A14 · 13 คน</option>
+                            <option value="A+N">A+N · 14 คน</option>
+                        </select>
+                    </label>
                     <div class="queue-room-actions">
                         <button type="button" class="btn btn-secondary btn-accent-success" onclick="openQueueRoomNewTab()" title="ดูตารางคิวแบบเต็มจอในแท็บใหม่">
                             🔗 เปิดในแท็บใหม่
@@ -129,7 +135,7 @@
                         <button type="button" class="btn btn-secondary btn-accent-warning" id="btn-download-queue-img" onclick="downloadQueueRoomAsImage()" title="บันทึกตารางคิวเป็นรูปภาพ PNG">
                             📥 ดาวน์โหลดรูป
                         </button>
-                        <button type="button" class="btn btn-secondary" onclick="runQueueRoomQue()" title="พิมพ์ชื่อแรกในช่องแรก แล้วเติมทั้งเดือนจาก 13 คนที่ทำงาน">
+                        <button type="button" class="btn btn-secondary" onclick="runQueueRoomQue()" title="พิมพ์ชื่อแรกในช่องแรก แล้วเติมทั้งเดือนจากรายชื่อคนทำงานของกะที่เลือก">
                             ▶ Run Que
                         </button>
                         <button type="button" class="btn btn-primary" onclick="saveQueueRoomPlan()">
@@ -139,7 +145,7 @@
                 </div>
 
                 <p class="queue-room-hint" id="queue-room-hint">
-                    ใส่รายชื่อทีมในแผงซ้าย เลือกคนทำงาน <strong>13 คน</strong> แล้วจัดลำดับ — พิมพ์ชื่อคิวแรกในช่องแรกของคอลัมน์แรก แล้วกด <strong>Run Que</strong> เพื่อเติมทั้งเดือน คนไม่ทำงานแสดงเป็น <strong>(ชื่อ)</strong>
+                    ใส่รายชื่อทีมในแผงซ้าย เลือกคนทำงาน <strong id="queue-room-working-limit">13 คน</strong> แล้วจัดลำดับ — พิมพ์ชื่อคิวแรกในช่องแรกของคอลัมน์แรก แล้วกด <strong>Run Que</strong> เพื่อเติมทั้งเดือน คนไม่ทำงานแสดงเป็น <strong>(ชื่อ)</strong>
                 </p>
                 <p class="queue-room-meta" id="queue-room-meta"></p>
 
@@ -250,7 +256,7 @@
                         <!-- Filled dynamically -->
                     </div>
                     <div class="form-label" style="margin-bottom: 0;">
-                        คิวทำงานเวรก่อนหน้า (13 คน):
+                        คิวทำงานเวรก่อนหน้า:
                     </div>
                     <div id="prev-shift-ref-queue" class="ref-queue-box">
                         <!-- Filled dynamically -->
@@ -332,7 +338,24 @@
     <script src="{{ url_for('static', filename='js/team_schedule.js', v=static_v) }}"></script>
     <!-- Interactive Workspace logic -->
     <script>
-        var QUEUE_WORKING_LIMIT = window.QUEUE_WORKING_LIMIT || 13;
+        function queueRoomWorkingLimit() {
+            return getQueueWorkingLimit(`${getQueueRoomYearMonth()}-01`, queueRoomShiftType);
+        }
+
+        function queueRoomGroup() {
+            return getQueueShiftGroup(getQueueRoomYearMonth(), queueRoomShiftType);
+        }
+
+        function changeQueueRoomShift(shiftType) {
+            if (shiftType === queueRoomShiftType) return;
+            if (queueRoomDirty && !confirm('มีการแก้ไขที่ยังไม่บันทึก ต้องการเปลี่ยนกะโดยไม่บันทึกหรือไม่?')) {
+                document.getElementById('queue-room-shift').value = queueRoomShiftType;
+                return;
+            }
+            queueRoomShiftType = shiftType;
+            queueRoomDirty = false;
+            loadQueueRoomPlan();
+        }
         let roster = [];
         let shifts = [];
         let activeTab = 'dashboard';
@@ -344,6 +367,7 @@
         let queueRoomTeamId = (typeof TEAM_SCHEDULE !== 'undefined' && TEAM_SCHEDULE.teams[0])
             ? TEAM_SCHEDULE.teams[0].id
             : 'purple';
+        let queueRoomShiftType = 'M8/A14';
         let queueRoomColumns = [];
         let queueRoomUpdatedAt = null;
         let queueRoomDirty = false;
@@ -404,6 +428,26 @@
             { id: "FDO2", desc: "FDO 2 (Night)" },
             { id: "W/S N", desc: "Working Supervisor Night" }
         ];
+
+        function getShiftPreviewLogs() {
+            const isMorning = selectedShift.shift_type === 'M8/A14';
+            const logs = (isMorning ? morningLogs : anLogs).map(log => ({ ...log }));
+            if (!usesNovemberMasterLog(selectedShift.date)) return logs;
+            if (isMorning) {
+                logs.forEach(log => { log.desc = log.desc.replaceAll('GMC+F2', 'GMC'); });
+            } else {
+                const descriptions = ['GNN', 'GMC', 'GMC / GND', 'GND / GMC', 'GMC / LCL+CDC / GND+GMC'];
+                logs.filter(log => /^A[1-5]$/.test(log.id)).forEach((log, index) => {
+                    log.desc = `Afternoon Log ${index + 1} (${descriptions[index]})`;
+                });
+                logs.splice(logs.findIndex(log => log.id === 'N1'), 0,
+                    { id: 'A6', desc: 'Afternoon Log 6 (CDC / GND+GMC / LCL+CDC)' });
+                logs.find(log => log.id === 'N4').desc = 'Night Log 4 (GMC / CDC+GMC)';
+            }
+            logs.splice(logs.findIndex(log => log.id === 'FDO2') + 1, 0,
+                { id: 'FDO3', desc: isMorning ? 'FDO 3' : 'FDO 3 (Night)' });
+            return logs;
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
             loadAllData();
@@ -545,7 +589,7 @@
             const yearMonth = getQueueRoomYearMonth();
             const teamId = encodeURIComponent(queueRoomTeamId);
             const ym = encodeURIComponent(yearMonth);
-            window.open(`/queue-room/view?team_id=${teamId}&year_month=${ym}`, '_blank');
+            window.open(`/queue-room/view?team_id=${teamId}&year_month=${ym}&shift_type=${encodeURIComponent(queueRoomShiftType)}`, '_blank');
         }
 
         /**
@@ -584,11 +628,11 @@
                 gray: { bg: '#F3F4F6', color: '#374151' }
             }[teamId] || { bg: '#F1F5F9', color: '#0F172A' };
 
-            let maxLen = 13;
+            let maxLen = queueRoomWorkingLimit();
             columns.forEach(col => {
                 if (col.queue && col.queue.length > maxLen) maxLen = col.queue.length;
             });
-            const rowCount = Math.max(maxLen, 13);
+            const rowCount = Math.max(maxLen, queueRoomWorkingLimit());
 
             const border = '#E2E8F0';
             const mono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
@@ -782,7 +826,8 @@
                 });
 
                 const teamSlug = (team && team.id) ? team.id : String(queueRoomTeamId || 'team');
-                const filename = `Queue_${teamSlug}_${getQueueRoomYearMonth()}.png`;
+                const groupSlug = queueRoomGroup() ? `_${queueRoomShiftType.replace('/', '_').replace('+', '_')}` : '';
+                const filename = `Queue_${teamSlug}_${getQueueRoomYearMonth()}${groupSlug}.png`;
                 await saveCanvasAsPng(canvas, filename, {
                     successMessage: 'ดาวน์โหลดรูปตารางคิวแล้ว'
                 });
@@ -861,8 +906,8 @@
         function toggleQueueRosterWorking(index) {
             const person = queueRoomRoster[index];
             if (!person) return;
-            if (!person.working && countWorkingRoster() >= QUEUE_WORKING_LIMIT) {
-                showToast(`เลือกคนทำงานได้สูงสุด ${QUEUE_WORKING_LIMIT} คน`, 'warning');
+            if (!person.working && countWorkingRoster() >= queueRoomWorkingLimit()) {
+                showToast(`เลือกคนทำงานได้สูงสุด ${queueRoomWorkingLimit()} คน`, 'warning');
                 return;
             }
             person.working = !person.working;
@@ -911,9 +956,9 @@
             const workingCount = countWorkingRoster();
             const total = queueRoomRoster.length;
             if (countEl) {
-                countEl.innerText = `ทำงาน ${workingCount} / ${total}`;
-                countEl.classList.toggle('is-ready', workingCount === QUEUE_WORKING_LIMIT);
-                countEl.classList.toggle('is-over', workingCount > QUEUE_WORKING_LIMIT);
+                countEl.innerText = `ทำงาน ${workingCount} / ${queueRoomWorkingLimit()} คน · สมาชิก ${total} คน`;
+                countEl.classList.toggle('is-ready', workingCount === queueRoomWorkingLimit());
+                countEl.classList.toggle('is-over', workingCount > queueRoomWorkingLimit());
             }
 
             if (copyHint) {
@@ -939,7 +984,7 @@
             }
             if (empty) empty.style.display = 'none';
 
-            const workingFull = workingCount >= QUEUE_WORKING_LIMIT;
+            const workingFull = workingCount >= queueRoomWorkingLimit();
             list.innerHTML = queueRoomRoster.map((person, index) => {
                 const displayName = person.working ? person.initials : `(${person.initials})`;
                 const canEnable = person.working || !workingFull;
@@ -1008,13 +1053,13 @@
             }
         }
 
-        function planCacheKey(teamId, yearMonth) {
-            return `${teamId}:${yearMonth}`;
+        function planCacheKey(teamId, yearMonth, shiftType = queueRoomShiftType) {
+            return `${teamId}:${yearMonth}:${getQueueShiftGroup(yearMonth, shiftType)}`;
         }
 
-        async function fetchTeamMonthPlan(teamId, yearMonth) {
-            const key = planCacheKey(teamId, yearMonth);
-            const res = await fetch(`/api/team-month-queues?team_id=${encodeURIComponent(teamId)}&year_month=${encodeURIComponent(yearMonth)}`);
+        async function fetchTeamMonthPlan(teamId, yearMonth, shiftType = queueRoomShiftType) {
+            const key = planCacheKey(teamId, yearMonth, shiftType);
+            const res = await fetch(`/api/team-month-queues?team_id=${encodeURIComponent(teamId)}&year_month=${encodeURIComponent(yearMonth)}&shift_type=${encodeURIComponent(shiftType)}`);
             if (!res.ok) throw new Error('โหลดแผนคิวไม่สำเร็จ');
             const data = await res.json();
             const columns = Array.isArray(data.columns) ? data.columns : [];
@@ -1027,19 +1072,21 @@
             };
         }
 
-        async function ensureTeamMonthPlan(teamId, yearMonth) {
-            const key = planCacheKey(teamId, yearMonth);
+        async function ensureTeamMonthPlan(teamId, yearMonth, shiftType) {
+            const key = planCacheKey(teamId, yearMonth, shiftType);
             if (Object.prototype.hasOwnProperty.call(teamMonthQueuePlans, key)) {
                 return teamMonthQueuePlans[key];
             }
-            const result = await fetchTeamMonthPlan(teamId, yearMonth);
+            const result = await fetchTeamMonthPlan(teamId, yearMonth, shiftType);
             return result.columns;
         }
 
         async function loadQueueRoomPlan() {
             updateQueueRoomMonthLabel();
             const yearMonth = getQueueRoomYearMonth();
-            const skeleton = listTeamWorkColumns(queueRoomTeamId, queueRoomYear, queueRoomMonth);
+            document.getElementById('queue-room-shift-label').hidden = !queueRoomGroup();
+            document.getElementById('queue-room-working-limit').textContent = `${queueRoomWorkingLimit()} คน`;
+            const skeleton = listTeamWorkColumns(queueRoomTeamId, queueRoomYear, queueRoomMonth, queueRoomGroup());
 
             showLoading(true);
             try {
@@ -1081,16 +1128,16 @@
                 ? ` · รายชื่อจาก ${formatCopiedMonthLabel(queueRoomRosterCopiedFrom)}`
                 : '';
             const workingCount = countWorkingRoster();
-            meta.innerHTML = `${teamLabel} · ${colCount} คอลัมน์ · คนทำงาน ${workingCount}/${QUEUE_WORKING_LIMIT} · ${savedHint}${copyHint}${dirtyHint}`;
+            meta.innerHTML = `${teamLabel} · ${queueRoomGroup() || 'รวมทุกกะ'} · ${colCount} คอลัมน์ · คนทำงาน ${workingCount}/${queueRoomWorkingLimit()} · ${savedHint}${copyHint}${dirtyHint}`;
         }
 
         function getQueueRoomRowCount() {
-            let maxLen = 13;
+            let maxLen = queueRoomWorkingLimit();
             queueRoomColumns.forEach(col => {
                 if (col.queue && col.queue.length > maxLen) maxLen = col.queue.length;
             });
             // เผื่อแถวว่างให้พิมพ์เพิ่มในคอลัมน์แรก
-            return Math.max(maxLen, 13) + 2;
+            return Math.max(maxLen, queueRoomWorkingLimit()) + 2;
         }
 
         function renderQueueRoomTable() {
@@ -1232,8 +1279,8 @@
             const working = typeof getWorkingRosterInitials === 'function'
                 ? getWorkingRosterInitials(queueRoomRoster)
                 : queueRoomRoster.filter(person => person.working).map(person => person.initials);
-            if (working.length !== QUEUE_WORKING_LIMIT) {
-                showToast(`ต้องเลือกคนทำงานให้ครบ ${QUEUE_WORKING_LIMIT} คนก่อน (ตอนนี้ ${working.length} คน)`, 'warning');
+            if (working.length !== queueRoomWorkingLimit()) {
+                showToast(`ต้องเลือกคนทำงานให้ครบ ${queueRoomWorkingLimit()} คนก่อน (ตอนนี้ ${working.length} คน)`, 'warning');
                 return;
             }
 
@@ -1243,13 +1290,13 @@
                 return;
             }
             if (!working.includes(start)) {
-                showToast(`ชื่อ ${start} ไม่ได้อยู่ใน ${QUEUE_WORKING_LIMIT} คนที่ทำงานเดือนนี้`, 'warning');
+                showToast(`ชื่อ ${start} ไม่ได้อยู่ใน ${queueRoomWorkingLimit()} คนที่ทำงานเดือนนี้`, 'warning');
                 return;
             }
 
             const hasLaterData = queueRoomColumns.slice(1).some(c => c.queue && c.queue.length > 0);
             const firstColRest = (queueRoomColumns[0].queue || []).slice(1).some(name => String(name || '').trim());
-            if ((hasLaterData || firstColRest) && !confirm('มีคิวในตารางอยู่แล้ว จะเขียนทับทั้งเดือนด้วย 13 คนที่ทำงานหรือไม่?')) {
+            if ((hasLaterData || firstColRest) && !confirm(`มีคิวในตารางอยู่แล้ว จะเขียนทับทั้งเดือนด้วย ${queueRoomWorkingLimit()} คนที่ทำงานหรือไม่?`)) {
                 return;
             }
 
@@ -1279,6 +1326,7 @@
             const payload = {
                 team_id: queueRoomTeamId,
                 year_month: yearMonth,
+                shift_type: queueRoomShiftType,
                 columns: queueRoomColumns.map(col => ({
                     date: col.date,
                     shift_type: col.shift_type,
@@ -1570,6 +1618,7 @@
                     table.style.fontFamily = '"Calibri", "Segoe UI", Arial, sans-serif';
                     
                     const isMorning = data.shift_type === 'M8/A14';
+                    const morningHourCount = data.display_hour_count || 12;
                     const tbody = document.createElement('tbody');
                     const taskFontSize = isMorning ? '10pt' : '14pt';
 
@@ -1578,7 +1627,7 @@
                         // 1. Row 1: Date Header (M8 13 JUN 2026) Centered
                         const r1 = document.createElement('tr');
                         r1.innerHTML = `
-                            <td colspan="14" style="padding: 10px 0; font-weight: bold; font-size: 24pt; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
+                            <td colspan="${morningHourCount + 2}" style="padding: 10px 0; font-weight: bold; font-size: 24pt; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
                                 M8 ${data.date_display}
                             </td>
                         `;
@@ -1586,7 +1635,7 @@
 
                         // 2. Row 2: Hours Headers
                         const r2 = document.createElement('tr');
-                        const displayHours = data.hours.slice(0, 12);
+                        const displayHours = data.hours.slice(0, morningHourCount);
                         r2.innerHTML = `
                             <td style="background: #FFFFFF; color: #000000; padding: 8px; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: 11pt; width: 100px; min-width: 100px;"></td>
                             <td style="background: #FFFFFF; color: #000000; padding: 8px; border-right: 2px solid #000000; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: 11pt; width: 100px; min-width: 100px;"></td>
@@ -1612,9 +1661,9 @@
                                 const mergeCellVal = row.cells[0]?.value || '';
                                 const bgMergeColor = row.cells[0]?.bg_color || '';
                                 const bgMerge = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
-                                hourlyCells = `<td colspan="12" class="log-task-cell" data-slot="${row.slot_id}" data-idx="0" data-color="${bgMergeColor}" contenteditable="false" style="padding: 8px; text-align: center; font-size: ${taskFontSize}; font-weight: bold; ${bgMerge} color: #000000; border-right: 2px solid #000000; border-bottom: ${borderBottom};">${mergeCellVal}</td>`;
+                                hourlyCells = `<td colspan="12" class="log-task-cell" data-slot="${row.slot_id}" data-idx="0" data-color="${bgMergeColor}" contenteditable="false" style="padding: 8px; text-align: center; font-size: ${taskFontSize}; font-weight: bold; ${bgMerge} color: #000000; border-right: 2px solid #000000; border-bottom: ${borderBottom};">${mergeCellVal}</td>` + (morningHourCount > 12 ? '<td colspan="2" style="background:#FFFFFF;border-bottom:1px solid #A6A6A6;border-right:2px solid #000000;"></td>' : '');
                             } else {
-                                const displayCells = row.cells.slice(0, 12);
+                                const displayCells = row.cells.slice(0, morningHourCount);
                                 hourlyCells = displayCells.map((cell, cIdx) => {
                                     const isLastCol = (cIdx === displayCells.length - 1);
                                     const borderRight = isLastCol ? '2px solid #000000' : '1px solid #A6A6A6';
@@ -1652,8 +1701,8 @@
                         `;
                         tbody.appendChild(r2);
 
-                        // 3. Afternoon slots (first 6 rows in data.rows: slots 1-5 and FDO A)
-                        const afternoonRows = data.rows.slice(0, 6);
+                        // Afternoon slots, including A6 from November 2026
+                        const afternoonRows = data.rows.filter(row => /^A\d+$/.test(row.slot_id) || row.slot_id === 'FDO A');
                         afternoonRows.forEach((row, rIdx) => {
                             const tr = document.createElement('tr');
                             const isLastRow = (rIdx === afternoonRows.length - 1);
@@ -1697,7 +1746,7 @@
                         tbody.appendChild(r4);
 
                         // 6. Night slots (remaining rows in data.rows)
-                        const nightRows = data.rows.slice(6);
+                        const nightRows = data.rows.filter(row => !/^A\d+$/.test(row.slot_id) && row.slot_id !== 'FDO A');
                         nightRows.forEach((row, rIdx) => {
                             const tr = document.createElement('tr');
                             const isLastRow = (rIdx === nightRows.length - 1);
@@ -3532,6 +3581,11 @@
             const ch = choice.trim().toUpperCase();
             // Explicitly allow W/S half-day patterns before generic split
             if (ch === 'W/S M8/-' || ch === '-/W/S M8' || ch === 'W/S A14/-' || ch === '-/W/S A14') return true;
+            const usesNewLog = selectedShift && usesNovemberMasterLog(selectedShift.date);
+            if (['W/S A14', 'W/S M8', 'W/S N'].includes(ch)) {
+                return isMorning ? ch !== 'W/S N' : ch === 'W/S N';
+            }
+            if (ch === 'FDO3') return !!usesNewLog;
             if (ch.includes('/')) {
                 const parts = ch.split('/');
                 if (parts.length !== 2) return false;
@@ -3556,7 +3610,7 @@
                 if (ch === 'W/S N' || ch === 'FDO A' || ch === 'FDO1' || ch === 'FDO2') return true;
                 if (ch.startsWith('A')) {
                     const num = parseInt(ch.slice(1));
-                    return (!isNaN(num) && num >= 1 && num <= 5);
+                    return (!isNaN(num) && num >= 1 && num <= (usesNewLog ? 6 : 5));
                 }
                 if (ch.startsWith('N')) {
                     const num = parseInt(ch.slice(1));
@@ -3572,7 +3626,7 @@
             wrapper.innerHTML = '';
 
             const isMorning = selectedShift.shift_type === 'M8/A14';
-            const logs = isMorning ? morningLogs : anLogs;
+            const logs = getShiftPreviewLogs();
             
             const morningChoices = {};
             const afternoonChoices = {};
@@ -3835,15 +3889,17 @@
             const allEmps = roster.map(e => e.initials);
             if (allEmps.length === 0) return [];
 
+            const limit = getQueueWorkingLimit(targetDate, targetShiftType);
+            const compatible = s => !usesNovemberMasterLog(targetDate) || s.shift_type === targetShiftType;
             const targetTeam = getTeamForDate(targetDate, targetShiftType);
 
             let lastShift = null;
             if (targetTeam && shifts && shifts.length > 0) {
-                lastShift = shifts.find(s => getTeamForDate(s.date, s.shift_type) === targetTeam);
+                lastShift = shifts.find(s => s.date < targetDate && compatible(s) && getTeamForDate(s.date, s.shift_type) === targetTeam);
             }
 
             if (!lastShift && shifts && shifts.length > 0) {
-                lastShift = shifts[0];
+                lastShift = shifts.find(s => s.date < targetDate && compatible(s));
             }
 
             if (lastShift && lastShift.queue && lastShift.queue.length > 0) {
@@ -3855,13 +3911,13 @@
 
                 let suggested = baseQueue.filter(emp => allEmps.includes(emp));
                 allEmps.forEach(emp => {
-                    if (suggested.length < 13 && !suggested.includes(emp)) {
+                    if (suggested.length < limit && !suggested.includes(emp)) {
                         suggested.push(emp);
                     }
                 });
-                return suggested.slice(0, 13);
+                return suggested.slice(0, limit);
             }
-            return allEmps.slice(0, 13);
+            return allEmps.slice(0, limit);
         }
 
         /** @deprecated use resolveSuggestedQueue — kept for callers expecting array only */
@@ -3883,7 +3939,7 @@
             if (targetTeam && targetDate && targetShiftType) {
                 const yearMonth = String(targetDate).slice(0, 7);
                 try {
-                    const columns = await ensureTeamMonthPlan(targetTeam, yearMonth);
+                    const columns = await ensureTeamMonthPlan(targetTeam, yearMonth, targetShiftType);
                     const col = lookupQueueRoomColumn(columns, targetDate, targetShiftType);
                     const roomSupervisor = (col && col.supervisor) ? String(col.supervisor).trim().toUpperCase() : '';
                     if (col && Array.isArray(col.queue) && col.queue.length > 0) {
@@ -3934,7 +3990,7 @@
                 };
             }
             return {
-                queue: allEmps.slice(0, 13),
+                queue: allEmps.slice(0, getQueueWorkingLimit(targetDate, targetShiftType)),
                 supervisor: '',
                 source: 'roster',
                 hintHtml: `แนะนำจาก <strong>รายชื่อพนักงานในระบบ</strong> <span class="hint-edit">(แก้ไขได้)</span>`

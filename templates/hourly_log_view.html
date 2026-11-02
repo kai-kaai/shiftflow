@@ -74,6 +74,7 @@
             table.innerHTML = '';
 
             const isMorning = data.shift_type === 'M8/A14';
+            const morningHourCount = data.display_hour_count || 12;
             const tbody = document.createElement('tbody');
 
             const dateHeaderFontSize = '24pt';
@@ -91,14 +92,14 @@
                 table.style.maxWidth = '1400px';
                 const r1 = document.createElement('tr');
                 r1.innerHTML = `
-                    <td colspan="14" style="padding: ${dateHeaderPadding}; font-weight: bold; font-size: ${dateHeaderFontSize}; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
+                    <td colspan="${morningHourCount + 2}" style="padding: ${dateHeaderPadding}; font-weight: bold; font-size: ${dateHeaderFontSize}; border: 2px solid #000000; text-align: center; background: #FFFFFF; color: #000000;">
                         M8 ${data.date_display}
                     </td>
                 `;
                 tbody.appendChild(r1);
 
                 const r2 = document.createElement('tr');
-                const displayHours = data.hours.slice(0, 12);
+                const displayHours = data.hours.slice(0, morningHourCount);
                 r2.innerHTML = `
                     <td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-left: 2px solid #000000; border-right: 1px solid #A6A6A6; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: ${headerFontSize}; width: 100px; min-width: 100px;"></td>
                     <td style="background: #FFFFFF; color: #000000; padding: ${headerPadding}; border-right: 2px solid #000000; border-bottom: 2px solid #000000; text-align: center; font-weight: bold; font-size: ${headerFontSize}; width: 100px; min-width: 100px;"></td>
@@ -123,9 +124,9 @@
                         const mergeCellVal = row.cells[0]?.value || '';
                         const bgMergeColor = row.cells[0]?.bg_color || '';
                         const bgMerge = bgMergeColor ? `background-color: ${bgMergeColor};` : 'background-color: #FFFFFF;';
-                        hourlyCells = `<td colspan="12" style="padding: ${taskPadding}; text-align: center; font-size: ${taskFontSize}; font-weight: bold; ${bgMerge} color: #000000; border-right: 2px solid #000000; border-bottom: ${borderBottom};">${mergeCellVal}</td>`;
+                        hourlyCells = `<td colspan="12" style="padding: ${taskPadding}; text-align: center; font-size: ${taskFontSize}; font-weight: bold; ${bgMerge} color: #000000; border-right: 2px solid #000000; border-bottom: ${borderBottom};">${mergeCellVal}</td>` + (morningHourCount > 12 ? '<td colspan="2" style="background:#FFFFFF;border-bottom:1px solid #A6A6A6;border-right:2px solid #000000;"></td>' : '');
                     } else {
-                        const displayCells = row.cells.slice(0, 12);
+                        const displayCells = row.cells.slice(0, morningHourCount);
                         hourlyCells = displayCells.map((cell, cIdx) => {
                             const isLastCol = (cIdx === displayCells.length - 1);
                             const borderRight = isLastCol ? '2px solid #000000' : '1px solid #A6A6A6';
@@ -161,7 +162,7 @@
                 `;
                 tbody.appendChild(r2);
 
-                const afternoonRows = data.rows.slice(0, 6);
+                const afternoonRows = data.rows.filter(row => /^A\d+$/.test(row.slot_id) || row.slot_id === 'FDO A');
                 afternoonRows.forEach((row, rIdx) => {
                     const tr = document.createElement('tr');
                     const isLastRow = (rIdx === afternoonRows.length - 1);
@@ -202,7 +203,7 @@
                 `;
                 tbody.appendChild(r4);
 
-                const nightRows = data.rows.slice(6);
+                const nightRows = data.rows.filter(row => !/^A\d+$/.test(row.slot_id) && row.slot_id !== 'FDO A');
                 nightRows.forEach((row, rIdx) => {
                     const tr = document.createElement('tr');
                     const isLastRow = (rIdx === nightRows.length - 1);

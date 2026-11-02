@@ -4,16 +4,16 @@ import json
 import datetime
 import copy
 from flask import Flask, jsonify, request, render_template
-from log_templates import DEFAULT_LOG_TEMPLATES
+from log_templates import (DEFAULT_LOG_TEMPLATES, NOVEMBER_2026_LOG_TEMPLATES,
+                           MASTER_LOG_EFFECTIVE_DATE)
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'shiftflow.db')
+DB_PATH = os.environ.get('SHIFTFLOW_DB_PATH', os.path.join(BASE_DIR, 'shiftflow.db'))
 MASTER_LOG_EDIT_PASSWORD = 'admin'
-QUEUE_WORKING_LIMIT = 13
 # เปลี่ยนค่านี้เมื่อแก้ static เพื่อให้ iOS ทิ้งแคชไฟล์เก่า
-STATIC_ASSET_VERSION = '20260818a'
+STATIC_ASSET_VERSION = '20261102a'
 
 
 @app.context_processor
@@ -54,6 +54,9 @@ def init_db():
     conn = get_db()
     cursor = conn.cursor()
     
+    # Include schema changes in the transaction so an interrupted migration is atomic.
+    cursor.execute("BEGIN IMMEDIATE")
+
     # 1. Create tables
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS employees (
@@ -120,13 +123,34 @@ def init_db():
     if 'roster_json' not in queue_plan_columns:
         cursor.execute("ALTER TABLE team_month_queues ADD COLUMN roster_json TEXT")
 
-    for shift_type, template_data in DEFAULT_LOG_TEMPLATES.items():
+    versioned_templates = dict(DEFAULT_LOG_TEMPLATES)
+    versioned_templates.update({f"{key}@2026-11": value for key, value in NOVEMBER_2026_LOG_TEMPLATES.items()})
+    # Retain legacy plans and give each new shift group its own roster and queues.
+    if 'shift_group' not in queue_plan_columns:
+        cursor.execute("ALTER TABLE team_month_queues RENAME TO team_month_queues_legacy")
+        cursor.execute("""CREATE TABLE team_month_queues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id TEXT NOT NULL, year_month TEXT NOT NULL,
+            shift_group TEXT NOT NULL DEFAULT '',
+            columns_json TEXT NOT NULL DEFAULT '[]', roster_json TEXT, updated_at TEXT,
+            UNIQUE(team_id, year_month, shift_group)
+        )""")
+    cursor.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'team_month_queues_legacy'")
+    if cursor.fetchone():
+        # Also recover a legacy table left by an interrupted older migration.
+        cursor.execute("""INSERT OR IGNORE INTO team_month_queues
+            (team_id, year_month, columns_json, roster_json, updated_at)
+            SELECT team_id, year_month, columns_json, roster_json, updated_at
+            FROM team_month_queues_legacy""")
+        cursor.execute("DROP TABLE team_month_queues_legacy")
+
+    for shift_type, template_data in versioned_templates.items():
         layout_json = json.dumps(template_data)
         cursor.execute("SELECT layout FROM template_logs WHERE shift_type = ?", (shift_type,))
         template_row = cursor.fetchone()
         if template_row:
             existing_layout = template_row["layout"] or '{}'
-            if existing_layout in ('{}', ''):
+            if shift_type.endswith('@2026-11') or existing_layout in ('{}', ''):
                 cursor.execute(
                     "UPDATE template_logs SET layout = ? WHERE shift_type = ?",
                     (layout_json, shift_type)
@@ -180,10 +204,16 @@ def ensure_employees_exist(initials_list):
 # Initialize DB on import/startup
 init_db()
 
-def get_log_layout(shift_type):
+def template_key(shift_type, date_str=None):
+    effective_date = date_str or datetime.date.today().isoformat()
+    return f"{shift_type}@2026-11" if effective_date >= MASTER_LOG_EFFECTIVE_DATE else shift_type
+
+
+def get_log_layout(shift_type, date_str=None):
+    key = template_key(shift_type, date_str)
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT layout FROM template_logs WHERE shift_type = ?", (shift_type,))
+    cursor.execute("SELECT layout FROM template_logs WHERE shift_type = ?", (key,))
     row = cursor.fetchone()
     conn.close()
 
@@ -195,7 +225,8 @@ def get_log_layout(shift_type):
         except json.JSONDecodeError:
             pass
 
-    return copy.deepcopy(DEFAULT_LOG_TEMPLATES.get(shift_type, {"hours": [], "rows": []}))
+    templates = NOVEMBER_2026_LOG_TEMPLATES if key != shift_type else DEFAULT_LOG_TEMPLATES
+    return copy.deepcopy(templates.get(shift_type, {"hours": [], "rows": []}))
 
 def parse_custom_log_map(custom_log_val):
     custom_log_data = []
@@ -250,8 +281,8 @@ def build_choice_maps(selections, is_morning):
 
 def resolve_employee_for_slot(slot_str, slot_id, is_morning, morning_choice_to_emp, afternoon_choice_to_emp):
     if is_morning:
-        emp_m = morning_choice_to_emp.get(slot_str, "")
-        emp_a = afternoon_choice_to_emp.get(slot_str, "")
+        emp_m = morning_choice_to_emp.get(slot_id, "")
+        emp_a = afternoon_choice_to_emp.get(slot_id, "")
 
         clean_m = get_clean_initials(emp_m)
         clean_a = get_clean_initials(emp_a)
@@ -266,8 +297,8 @@ def resolve_employee_for_slot(slot_str, slot_id, is_morning, morning_choice_to_e
         emp = morning_choice_to_emp.get(slot_id, "")
     elif slot_str == "W/S N" and "W/S N" in morning_choice_to_emp:
         emp = morning_choice_to_emp["W/S N"]
-    elif slot_str in ["FDO A", "FDO1", "FDO2"] and slot_str in morning_choice_to_emp:
-        emp = morning_choice_to_emp[slot_str]
+    elif slot_id in ["FDO A", "FDO1", "FDO2", "FDO3"]:
+        emp = morning_choice_to_emp.get(slot_id, "")
     else:
         emp = ""
 
@@ -387,8 +418,8 @@ def _normalize_queue_columns(raw_columns):
     return normalized
 
 
-def _normalize_roster(raw_roster):
-    """Normalize roster payload to [{initials, working}]. Rejects more than 13 working."""
+def _normalize_roster(raw_roster, working_limit=13):
+    """Normalize roster payload to [{initials, working}]. Enforces the selected shift group staff limit."""
     if raw_roster is None:
         return [], None
     if not isinstance(raw_roster, list):
@@ -410,124 +441,120 @@ def _normalize_roster(raw_roster):
         seen.add(initials)
         if working:
             working_count += 1
-            if working_count > QUEUE_WORKING_LIMIT:
-                return None, f"เลือกคนทำงานได้สูงสุด {QUEUE_WORKING_LIMIT} คน"
+            if working_count > working_limit:
+                return None, f"เลือกคนทำงานได้สูงสุด {working_limit} คน"
         normalized.append({"initials": initials, "working": working})
     return normalized, None
 
 
-def _parse_saved_roster(raw_json):
-    """Return list if roster was saved, or None if this month has no roster yet."""
-    if raw_json is None or raw_json == "":
+def queue_working_limit(year_month, shift_type):
+    return 14 if year_month >= '2026-11' and shift_type == 'A+N' else 13
+
+
+def _queue_group(year_month, shift_type):
+    if year_month < '2026-11':
+        return ''
+    return shift_type or 'M8/A14'
+
+
+def _parse_saved_roster(raw_json, working_limit=13):
+    if not raw_json:
         return None
     try:
         data = json.loads(raw_json)
+        if not isinstance(data, list):
+            return None
+        roster, err = _normalize_roster(data, working_limit)
+        return None if err else roster
     except (TypeError, json.JSONDecodeError):
         return None
-    if not isinstance(data, list):
-        return None
-    roster, err = _normalize_roster(data)
-    if err:
-        return None
-    return roster
 
 
-def _row_saved_roster(row):
+def _columns_from_row(row, group=''):
     if row is None:
-        return None
-    try:
-        keys = row.keys()
-    except Exception:
-        return None
-    if "roster_json" not in keys:
-        return None
-    return _parse_saved_roster(row["roster_json"])
-
-
-def _columns_from_row(row):
+        return []
     try:
         columns = json.loads(row["columns_json"] or "[]")
     except (TypeError, json.JSONDecodeError):
-        columns = []
-    return columns if isinstance(columns, list) else []
+        return []
+    return [col for col in columns if not group or col.get('shift_type') == group]
 
 
-def _find_previous_roster(cursor, team_id, year_month):
+def _queue_plan(cursor, team_id, year_month, group):
     cursor.execute(
-        '''SELECT year_month, roster_json FROM team_month_queues
-           WHERE team_id = ? AND year_month < ?
-             AND roster_json IS NOT NULL AND roster_json != ''
-           ORDER BY year_month DESC''',
-        (team_id, year_month)
-    )
-    for prev in cursor.fetchall():
-        roster = _parse_saved_roster(prev["roster_json"])
-        if roster is None:
-            continue
-        return roster, prev["year_month"]
-    return [], None
+        "SELECT * FROM team_month_queues WHERE team_id = ? AND year_month = ? AND shift_group = ?",
+        (team_id, year_month, group))
+    row = cursor.fetchone()
+    # Existing combined plans remain readable until each group is saved separately.
+    if row is None and group:
+        cursor.execute(
+            "SELECT * FROM team_month_queues WHERE team_id = ? AND year_month = ? AND shift_group = ''",
+            (team_id, year_month))
+        row = cursor.fetchone()
+    limit = queue_working_limit(year_month, group)
+    roster = _parse_saved_roster(row['roster_json'], limit) if row else None
+    copied_from = None
+    if roster is None:
+        cursor.execute(
+            """SELECT * FROM team_month_queues WHERE team_id = ? AND year_month < ?
+               AND (shift_group = ? OR shift_group = '')
+               ORDER BY year_month DESC, CASE WHEN shift_group = ? THEN 0 ELSE 1 END""",
+            (team_id, year_month, group, group))
+        for previous in cursor.fetchall():
+            # After the change, carry forward only this group's roster or a legacy combined roster.
+            roster = _parse_saved_roster(previous['roster_json'], limit)
+            if roster is not None:
+                copied_from = previous['year_month']
+                break
+    return {
+        'team_id': team_id, 'year_month': year_month, 'shift_type': group,
+        'working_limit': limit, 'columns': _columns_from_row(row, group),
+        'roster': roster or [], 'roster_copied_from': copied_from,
+        'updated_at': row['updated_at'] if row else None,
+    }
 
 
-def _roster_for_get(cursor, team_id, year_month, row):
-    saved = _row_saved_roster(row)
-    if saved is not None:
-        return saved, None
-    return _find_previous_roster(cursor, team_id, year_month)
+def _queue_request_identity(data):
+    team_id = str(data.get('team_id') or '').strip()
+    year_month = str(data.get('year_month') or '').strip()
+    shift_type = str(data.get('shift_type') or '').strip()
+    if not team_id or not year_month:
+        raise ValueError('ต้องระบุ team_id และ year_month')
+    try:
+        datetime.date.fromisoformat(year_month + '-01')
+        if len(year_month) != 7:
+            raise ValueError()
+    except ValueError:
+        raise ValueError('year_month ต้องเป็นรูปแบบ YYYY-MM')
+    if shift_type not in ('', 'M8/A14', 'A+N'):
+        raise ValueError('Invalid shift type')
+    return team_id, year_month, _queue_group(year_month, shift_type)
 
 
 @app.route('/api/team-month-queues', methods=['GET'])
 def get_team_month_queues():
-    team_id = (request.args.get('team_id') or '').strip()
-    year_month = (request.args.get('year_month') or '').strip()
-
     conn = get_db()
-    cursor = conn.cursor()
     try:
-        if team_id and year_month:
-            cursor.execute(
-                "SELECT * FROM team_month_queues WHERE team_id = ? AND year_month = ?",
-                (team_id, year_month)
-            )
-            row = cursor.fetchone()
-            roster, copied_from = _roster_for_get(cursor, team_id, year_month, row)
-            if not row:
-                return jsonify({
-                    "team_id": team_id,
-                    "year_month": year_month,
-                    "columns": [],
-                    "roster": roster,
-                    "roster_copied_from": copied_from,
-                    "updated_at": None
-                })
-            return jsonify({
-                "team_id": row["team_id"],
-                "year_month": row["year_month"],
-                "columns": _columns_from_row(row),
-                "roster": roster,
-                "roster_copied_from": copied_from,
-                "updated_at": row["updated_at"]
-            })
-
-        # Optional: all teams for a month, or all plans
-        if year_month:
-            cursor.execute(
-                "SELECT * FROM team_month_queues WHERE year_month = ? ORDER BY team_id ASC",
-                (year_month,)
-            )
-        else:
-            cursor.execute("SELECT * FROM team_month_queues ORDER BY year_month DESC, team_id ASC")
-
+        cursor = conn.cursor()
+        if request.args.get('team_id') and request.args.get('year_month'):
+            try:
+                identity = _queue_request_identity(request.args)
+            except ValueError as err:
+                return jsonify({'error': str(err)}), 400
+            return jsonify(_queue_plan(cursor, *identity))
+        year_month = request.args.get('year_month')
+        cursor.execute("SELECT * FROM team_month_queues WHERE (? IS NULL OR year_month = ?) ORDER BY year_month DESC, team_id, shift_group",
+                       (year_month, year_month))
         plans = []
         for row in cursor.fetchall():
-            saved_roster = _row_saved_roster(row)
+            group = row['shift_group']
             plans.append({
-                "team_id": row["team_id"],
-                "year_month": row["year_month"],
-                "columns": _columns_from_row(row),
-                "roster": saved_roster if saved_roster is not None else [],
-                "updated_at": row["updated_at"]
+                'team_id': row['team_id'], 'year_month': row['year_month'], 'shift_type': group,
+                'columns': _columns_from_row(row, group),
+                'roster': _parse_saved_roster(row['roster_json'], queue_working_limit(row['year_month'], group)) or [],
+                'updated_at': row['updated_at'],
             })
-        return jsonify({"plans": plans})
+        return jsonify({'plans': plans})
     finally:
         conn.close()
 
@@ -535,102 +562,59 @@ def get_team_month_queues():
 @app.route('/api/team-month-queues', methods=['PUT'])
 def put_team_month_queues():
     data = request.json or {}
-    team_id = str(data.get('team_id', '')).strip()
-    year_month = str(data.get('year_month', '')).strip()
-    raw_columns = data.get('columns')
-
-    if not team_id or not year_month:
-        return jsonify({"error": "ต้องระบุ team_id และ year_month"}), 400
-    if len(year_month) != 7 or year_month[4] != '-':
-        return jsonify({"error": "year_month ต้องเป็นรูปแบบ YYYY-MM"}), 400
-
-    columns = _normalize_queue_columns(raw_columns)
-    roster_provided = 'roster' in data
+    try:
+        team_id, year_month, group = _queue_request_identity(data)
+    except ValueError as err:
+        return jsonify({'error': str(err)}), 400
+    columns = _normalize_queue_columns(data.get('columns'))
+    if any(col['date'][:7] != year_month or (group and col['shift_type'] != group) for col in columns):
+        return jsonify({'error': 'คอลัมน์ต้องอยู่ในเดือนและกะที่เลือก'}), 400
+    limit = queue_working_limit(year_month, group)
     roster = None
-    if roster_provided:
-        roster, roster_error = _normalize_roster(data.get('roster'))
-        if roster_error:
-            return jsonify({"error": roster_error}), 400
-
-    all_initials = []
-    for col in columns:
-        all_initials.extend(col["queue"])
-    if roster:
-        all_initials.extend(item["initials"] for item in roster)
-    ensure_employees_exist(all_initials)
-
+    if 'roster' in data:
+        roster, error = _normalize_roster(data['roster'], limit)
+        if error:
+            return jsonify({'error': error}), 400
+    ensure_employees_exist([name for col in columns for name in col['queue']] +
+                           [person['initials'] for person in (roster or [])])
     updated_at = datetime.datetime.now().isoformat(timespec='seconds')
     conn = get_db()
-    cursor = conn.cursor()
     try:
-        if roster_provided:
-            cursor.execute(
-                '''INSERT INTO team_month_queues (team_id, year_month, columns_json, roster_json, updated_at)
-                   VALUES (?, ?, ?, ?, ?)
-                   ON CONFLICT(team_id, year_month) DO UPDATE SET
-                     columns_json = excluded.columns_json,
-                     roster_json = excluded.roster_json,
-                     updated_at = excluded.updated_at''',
-                (
-                    team_id,
-                    year_month,
-                    json.dumps(columns, ensure_ascii=False),
-                    json.dumps(roster, ensure_ascii=False),
-                    updated_at
-                )
-            )
-        else:
-            cursor.execute(
-                '''INSERT INTO team_month_queues (team_id, year_month, columns_json, updated_at)
-                   VALUES (?, ?, ?, ?)
-                   ON CONFLICT(team_id, year_month) DO UPDATE SET
-                     columns_json = excluded.columns_json,
-                     updated_at = excluded.updated_at''',
-                (team_id, year_month, json.dumps(columns, ensure_ascii=False), updated_at)
-            )
-            cursor.execute(
-                "SELECT roster_json FROM team_month_queues WHERE team_id = ? AND year_month = ?",
-                (team_id, year_month)
-            )
-            saved_row = cursor.fetchone()
-            roster = _parse_saved_roster(saved_row["roster_json"]) if saved_row else None
-            if roster is None:
-                roster = []
-
+        cursor = conn.cursor()
+        if roster is None:
+            roster = _queue_plan(cursor, team_id, year_month, group)['roster']
+        cursor.execute(
+            """INSERT INTO team_month_queues
+               (team_id, year_month, shift_group, columns_json, roster_json, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(team_id, year_month, shift_group) DO UPDATE SET
+               columns_json = excluded.columns_json, roster_json = excluded.roster_json,
+               updated_at = excluded.updated_at""",
+            (team_id, year_month, group, json.dumps(columns, ensure_ascii=False),
+             json.dumps(roster, ensure_ascii=False), updated_at))
         conn.commit()
-        return jsonify({
-            "success": True,
-            "team_id": team_id,
-            "year_month": year_month,
-            "columns": columns,
-            "roster": roster,
-            "roster_copied_from": None,
-            "updated_at": updated_at
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify(success=True, **_queue_plan(cursor, team_id, year_month, group))
     finally:
         conn.close()
 
 
 @app.route('/api/team-month-queues', methods=['DELETE'])
 def delete_team_month_queues():
-    team_id = (request.args.get('team_id') or '').strip()
-    year_month = (request.args.get('year_month') or '').strip()
-    if not team_id or not year_month:
-        return jsonify({"error": "ต้องระบุ team_id และ year_month"}), 400
-
-    conn = get_db()
-    cursor = conn.cursor()
     try:
+        team_id, year_month, group = _queue_request_identity(request.args)
+    except ValueError as err:
+        return jsonify({'error': str(err)}), 400
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        # A tombstone prevents a deleted group from falling back to the combined plan.
         cursor.execute(
-            "DELETE FROM team_month_queues WHERE team_id = ? AND year_month = ?",
-            (team_id, year_month)
-        )
+            """INSERT INTO team_month_queues (team_id, year_month, shift_group, columns_json, roster_json)
+               VALUES (?, ?, ?, '[]', '[]') ON CONFLICT(team_id, year_month, shift_group)
+               DO UPDATE SET columns_json = '[]', roster_json = '[]', updated_at = NULL""",
+            (team_id, year_month, group))
         conn.commit()
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify(success=True)
     finally:
         conn.close()
 
@@ -711,7 +695,8 @@ def create_shift():
                 return jsonify({"error": "ยังไม่มีรายชื่อพนักงานในระบบ โปรดเพิ่มผ่านฟอร์มสร้างวันจัดเวร"}), 400
 
             # Find the last shift queue to compute rotating order
-            cursor.execute("SELECT queue FROM shifts ORDER BY date DESC, id DESC LIMIT 1")
+            cursor.execute("SELECT queue FROM shifts WHERE date < ? AND (? = 0 OR shift_type = ?) ORDER BY date DESC, id DESC LIMIT 1",
+                           (date_str, int(date_str >= MASTER_LOG_EFFECTIVE_DATE), shift_type))
             last_shift_row = cursor.fetchone()
             
             if last_shift_row:
@@ -733,11 +718,14 @@ def create_shift():
                 # Fallback to default roster order
                 queue_list = all_emps
 
+        if not custom_queue:
+            queue_list = queue_list[:queue_working_limit(date_str[:7], shift_type)]
+
         # Auto-add any brand new employee names that the user typed in the queue textarea
         ensure_employees_exist(queue_list)
 
         # Fetch template custom_log if exists
-        cursor.execute("SELECT custom_log FROM template_logs WHERE shift_type = ?", (shift_type,))
+        cursor.execute("SELECT custom_log FROM template_logs WHERE shift_type = ?", (template_key(shift_type, date_str),))
         template_row = cursor.fetchone()
         custom_log_val = template_row["custom_log"] if template_row else '[]'
 
@@ -816,7 +804,7 @@ def get_shift_hourly_log(id):
 
     try:
         is_morning = shift["shift_type"] == 'M8/A14'
-        layout = get_log_layout(shift["shift_type"])
+        layout = get_log_layout(shift["shift_type"], shift["date"])
         selections = json.loads(shift["selections"])
         custom_log_val = shift["custom_log"] if "custom_log" in shift.keys() else "[]"
 
@@ -837,6 +825,7 @@ def get_shift_hourly_log(id):
             "shift_type": shift["shift_type"],
             "supervisor": shift["supervisor"],
             "hours": layout["hours"],
+            "display_hour_count": layout.get("display_hour_count", 12 if is_morning else len(layout["hours"])),
             "rows": rows
         })
     except Exception as e:
@@ -871,11 +860,11 @@ def get_template_hourly_log(shift_type_slug):
 
     try:
         is_morning = shift_type == 'M8/A14'
-        layout = get_log_layout(shift_type)
+        layout = get_log_layout(shift_type, request.args.get("date"))
 
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT custom_log FROM template_logs WHERE shift_type = ?", (shift_type,))
+        cursor.execute("SELECT custom_log FROM template_logs WHERE shift_type = ?", (template_key(shift_type, request.args.get("date")),))
         template_row = cursor.fetchone()
         conn.close()
 
@@ -888,6 +877,8 @@ def get_template_hourly_log(shift_type_slug):
         )
 
         date_display = "Morning Master Log" if is_morning else "Afternoon/Night Master Log"
+        if template_key(shift_type, request.args.get('date')) != shift_type:
+            date_display = 'NOV 2026'
 
         return jsonify({
             "shift_id": f"template:{shift_type}",
@@ -895,6 +886,7 @@ def get_template_hourly_log(shift_type_slug):
             "shift_type": shift_type,
             "supervisor": "",
             "hours": layout["hours"],
+            "display_hour_count": layout.get("display_hour_count", 12 if is_morning else len(layout["hours"])),
             "rows": rows
         })
     except Exception as e:
@@ -918,17 +910,17 @@ def save_template_hourly_log(shift_type_slug):
     conn = get_db()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT 1 FROM template_logs WHERE shift_type = ?", (shift_type,))
+        cursor.execute("SELECT 1 FROM template_logs WHERE shift_type = ?", (template_key(shift_type, request.args.get("date")),))
         exists = cursor.fetchone()
         if exists:
             cursor.execute(
                 "UPDATE template_logs SET custom_log = ? WHERE shift_type = ?",
-                (json.dumps(custom_log), shift_type)
+                (json.dumps(custom_log), template_key(shift_type, request.args.get("date")))
             )
         else:
             cursor.execute(
                 "INSERT INTO template_logs (shift_type, custom_log) VALUES (?, ?)",
-                (shift_type, json.dumps(custom_log))
+                (template_key(shift_type, request.args.get("date")), json.dumps(custom_log))
             )
         conn.commit()
         return jsonify({"success": True, "message": "บันทึกข้อมูล Master Log เรียบร้อยแล้ว"})
