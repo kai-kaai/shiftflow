@@ -72,13 +72,13 @@ class MasterLogVersionTests(unittest.TestCase):
             if kind == 'A+N':
                 self.assertEqual(by_id['A6']['employee'], 'BB')
                 self.assertEqual(by_id['A1']['cells'][0]['value'], 'GNN')
-                self.assertEqual(by_id['A6']['cells'][5]['value'], 'LCL+CDC')
+                self.assertEqual(by_id['A6']['cells'][5]['value'], 'GND')
                 self.assertEqual(by_id['N4']['cells'][8]['value'], 'CDC+GMC')
                 self.assertEqual(by_id['N3']['cells'][7]['value'], 'GMC')
             else:
                 self.assertEqual(by_id['1']['employee'], 'BB')
                 self.assertEqual(by_id['2']['employee'], 'BB')
-                self.assertEqual(by_id['FDO3']['cells'][0]['value'], 'F2')
+                self.assertEqual(by_id['FDO3']['cells'][0]['value'], 'FDO')
                 self.assertFalse(any('GMC+F2' in c['value'] for r in rows for c in r['cells']))
 
     def test_queue_groups_are_independent_and_enforce_limits(self):
@@ -97,6 +97,79 @@ class MasterLogVersionTests(unittest.TestCase):
         self.assertEqual(self.plan('M8/A14')['roster'], morning['roster'])
         self.assertEqual(self.plan('A+N', '2026-12')['roster'], night['roster'])
         self.assertEqual(self.plan('M8/A14', '2026-12')['roster'], morning['roster'])
+
+    def test_afternoon_reference_and_night_fdo_hours(self):
+        response = self.client.get('/api/templates/A_N/hourly-log?date=2026-11-01')
+        self.assertEqual(response.status_code, 200)
+        rows = {row['slot_id']: row for row in response.json['rows']}
+        # Reference image: afternoon duties from 1200 to 1800 UTC.
+        expected = [
+            ['GNN', 'CDC+GMC', 'LCL', '', '', ''],
+            ['GMC', 'LCL', 'GND', '', '', ''],
+            ['', 'GND', 'CDC+GMC', 'GND', '', ''],
+            ['', '', '', 'CDC', 'LCL', 'CDC+GMC'],
+            ['', '', '', 'GMC', 'GND', 'LCL'],
+            ['', '', '', 'LCL', 'CDC+GMC', 'GND'],
+        ]
+        for number, values in enumerate(expected, 1):
+            cells = rows[f'A{number}']['cells']
+            self.assertEqual([cell['value'] for cell in cells[:6]], values)
+            for cell in cells[:6]:
+                self.assertEqual(cell['bg_color'], '#EA9999' if cell['value'] else '#F4CCCC')
+            self.assertTrue(all(not cell['value'] for cell in cells[6:]))
+        expected_fdo_hours = {
+            'FDO1': ['1700-1800', '1800-1900', '2300-0000', '0000-0100'],
+            'FDO2': ['1700-1800', '1800-1900', '1900-2000', '2000-2100'],
+            'FDO3': ['2100-2200', '2200-2300', '2300-0000', '0000-0100'],
+        }
+        for slot, hours in expected_fdo_hours.items():
+            cells = rows[slot]['cells']
+            self.assertEqual([hour for hour, cell in zip(response.json['hours'], cells) if cell['value']], hours)
+            self.assertTrue(all(cell['bg_color'] == '#999999' for cell in cells if cell['value']))
+        self.assertEqual([cell['bg_color'] for cell in rows['FDO1']['cells'][3:5]], ['#CCCCCC'] * 2)
+        self.assertEqual(rows['N4']['cells'][8]['value'], 'CDC+GMC')
+        self.assertEqual(rows['FDO A']['cells'][1]['value'], 'FDO')
+
+    def test_fdo_reference_labels_hours_and_employee_mapping(self):
+        morning = self.module.get_log_layout('M8/A14', '2026-11-01')
+        morning_rows = {row['slot_id']: row for row in morning['rows']}
+        expected_morning = {
+            'FDO1': ('M1', ['0100-0200', '0200-0300', '0400-0500', '0500-0600', '0700-0800', '0800-0900', '1000-1100', '1100-1200']),
+            'FDO2': ('M2', ['0200-0300', '0300-0400', '0500-0600', '0600-0700', '0800-0900', '0900-1000', '1100-1200', '1200-1300']),
+            'FDO3': ('M3', ['0100-0200', '0300-0400', '0400-0500', '0600-0700', '0700-0800', '0900-1000', '1000-1100', '1200-1300']),
+        }
+        for slot, (label, hours) in expected_morning.items():
+            row = morning_rows[slot]
+            self.assertEqual(row['slot'], label)
+            self.assertEqual([hour for hour, cell in zip(morning['hours'], row['cells']) if cell['value']], hours)
+            self.assertTrue(all(cell['value'] in ('', 'FDO') for cell in row['cells']))
+            self.assertTrue(all(cell['bg_color'] == ('#BFE0CE' if cell['value'] else '#FFFFFF') for cell in row['cells']))
+        rows = self.module.build_hourly_log_rows(morning, True, {'AA': 'FDO M1', 'BB': 'M1'})
+        by_id = {row['slot_id']: row for row in rows}
+        self.assertEqual(by_id['FDO1']['employee'], 'AA')
+        self.assertEqual(by_id['1']['employee'], 'BB')
+
+        layout = self.module.get_log_layout('A+N', '2026-11-01')
+        fdo_rows = [row for row in layout['rows'] if row['slot_id'].startswith('FDO')]
+        self.assertEqual([row['slot'] for row in fdo_rows], ['N1', 'N2', 'N3', 'N4', 'N5'])
+        self.assertEqual([row['section'] for row in fdo_rows], ['afternoon', 'afternoon', 'night', 'night', 'night'])
+        for row in fdo_rows[:2]:
+            self.assertEqual([hour for hour, cell in zip(layout['hours'], row['cells']) if cell['value']],
+                             ['1300-1400', '1400-1500', '1500-1600', '1600-1700'])
+        self.assertTrue(all(row['slot_bg'] == row['employee_bg'] == '#999999' for row in fdo_rows))
+        self.assertTrue(all(cell['bg_color'] == ('#999999' if cell['value'] else '#CCCCCC')
+                            for row in fdo_rows for cell in row['cells']))
+        afternoon_rows = [row for row in layout['rows']
+                          if row.get('section') == 'afternoon' or row['slot_id'].startswith('A')]
+        self.assertEqual(afternoon_rows[-1]['slot'], 'N2')
+        self.assertEqual(afternoon_rows[-1]['slot_id'], 'FDO A2')
+        for selections in ({'AA': 'FDO N1', 'BB': 'FDO N2', 'CC': 'N1'},
+                           {'AA': 'FDOA', 'BB': 'FDOA2', 'CC': 'N1'}):
+            rows = self.module.build_hourly_log_rows(layout, False, selections)
+            by_id = {row['slot_id']: row for row in rows}
+            self.assertEqual(by_id['FDO A']['employee'], 'AA')
+            self.assertEqual(by_id['FDO A2']['employee'], 'BB')
+            self.assertEqual(by_id['N1']['employee'], 'CC')
 
     def test_migration_and_legacy_fallback_preserve_both_groups(self):
         self.module.init_db()  # migration is safe to run more than once

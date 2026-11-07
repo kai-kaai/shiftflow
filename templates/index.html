@@ -436,16 +436,34 @@
             if (isMorning) {
                 logs.forEach(log => { log.desc = log.desc.replaceAll('GMC+F2', 'GMC'); });
             } else {
-                const descriptions = ['GNN', 'GMC', 'GMC / GND', 'GND / GMC', 'GMC / LCL+CDC / GND+GMC'];
+                const descriptions = ['GNN / CDC+GMC / LCL', 'GMC / LCL / GND', 'GND / CDC+GMC / GND', 'CDC / LCL / CDC+GMC', 'GMC / GND / LCL'];
                 logs.filter(log => /^A[1-5]$/.test(log.id)).forEach((log, index) => {
                     log.desc = `Afternoon Log ${index + 1} (${descriptions[index]})`;
                 });
                 logs.splice(logs.findIndex(log => log.id === 'N1'), 0,
-                    { id: 'A6', desc: 'Afternoon Log 6 (CDC / GND+GMC / LCL+CDC)' });
+                    { id: 'A6', desc: 'Afternoon Log 6 (LCL / CDC+GMC / GND)' });
                 logs.find(log => log.id === 'N4').desc = 'Night Log 4 (GMC / CDC+GMC)';
             }
             logs.splice(logs.findIndex(log => log.id === 'FDO2') + 1, 0,
-                { id: 'FDO3', desc: isMorning ? 'FDO 3' : 'FDO 3 (Night)' });
+                { id: 'FDO3', desc: isMorning ? 'FDO Morning M3' : 'FDO Night N5' });
+            if (isMorning) {
+                logs.filter(log => /^FDO[1-3]$/.test(log.id)).forEach(log => {
+                    log.label = `FDO M${log.id.slice(-1)}`;
+                    log.desc = `FDO Morning M${log.id.slice(-1)}`;
+                });
+            } else {
+                const fdoLabels = { 'FDO A': 'N1', 'FDO A2': 'N2', FDO2: 'N3', FDO1: 'N4', FDO3: 'N5' };
+                logs.splice(logs.findIndex(log => log.id === 'FDO A') + 1, 0,
+                    { id: 'FDO A2', desc: 'FDO Afternoon N2' });
+                const firstNightFdo = logs.findIndex(log => log.id === 'FDO1');
+                [logs[firstNightFdo], logs[firstNightFdo + 1]] = [logs[firstNightFdo + 1], logs[firstNightFdo]];
+                logs.forEach(log => {
+                    if (fdoLabels[log.id]) {
+                        log.label = `FDO ${fdoLabels[log.id]}`;
+                        log.desc = `FDO ${log.id.startsWith('FDO A') ? 'Afternoon' : 'Night'} ${fdoLabels[log.id]}`;
+                    }
+                });
+            }
             return logs;
         }
 
@@ -1702,7 +1720,7 @@
                         tbody.appendChild(r2);
 
                         // Afternoon slots, including A6 from November 2026
-                        const afternoonRows = data.rows.filter(row => /^A\d+$/.test(row.slot_id) || row.slot_id === 'FDO A');
+                        const afternoonRows = data.rows.filter(row => row.section === 'afternoon' || /^A\d+$/.test(row.slot_id) || row.slot_id === 'FDO A');
                         afternoonRows.forEach((row, rIdx) => {
                             const tr = document.createElement('tr');
                             const isLastRow = (rIdx === afternoonRows.length - 1);
@@ -1746,7 +1764,7 @@
                         tbody.appendChild(r4);
 
                         // 6. Night slots (remaining rows in data.rows)
-                        const nightRows = data.rows.filter(row => !/^A\d+$/.test(row.slot_id) && row.slot_id !== 'FDO A');
+                        const nightRows = data.rows.filter(row => row.section !== 'afternoon' && !/^A\d+$/.test(row.slot_id) && row.slot_id !== 'FDO A');
                         nightRows.forEach((row, rIdx) => {
                             const tr = document.createElement('tr');
                             const isLastRow = (rIdx === nightRows.length - 1);
@@ -3312,7 +3330,7 @@
             
             // Bypass digit check for FDO and W/S roles
             if (choice.includes('FDO') || choice.includes('W/S')) {
-                return choice;
+                return normalizeFdoChoice(choice, isMorning);
             }
             
             // If the choice has no digits, it's just the empty/prompt template (like "/-", "-/", etc.)
@@ -3577,8 +3595,16 @@
             }
         }
 
+        function normalizeFdoChoice(choice, isMorning) {
+            const value = String(choice).trim().toUpperCase();
+            const aliases = isMorning
+                ? { FDOM1: 'FDO1', FDOM2: 'FDO2', FDOM3: 'FDO3' }
+                : { FDON1: 'FDO A', FDON2: 'FDO A2', FDON3: 'FDO2', FDON4: 'FDO1', FDON5: 'FDO3', FDOA: 'FDO A', FDOA2: 'FDO A2' };
+            return aliases[value.replace(/\s+/g, '')] || value;
+        }
+
         function validateChoiceFormat(choice, isMorning) {
-            const ch = choice.trim().toUpperCase();
+            const ch = normalizeFdoChoice(choice, isMorning);
             // Explicitly allow W/S half-day patterns before generic split
             if (ch === 'W/S M8/-' || ch === '-/W/S M8' || ch === 'W/S A14/-' || ch === '-/W/S A14') return true;
             const usesNewLog = selectedShift && usesNovemberMasterLog(selectedShift.date);
@@ -3586,6 +3612,7 @@
                 return isMorning ? ch !== 'W/S N' : ch === 'W/S N';
             }
             if (ch === 'FDO3') return !!usesNewLog;
+            if (ch === 'FDO A2') return !isMorning && !!usesNewLog;
             if (ch.includes('/')) {
                 const parts = ch.split('/');
                 if (parts.length !== 2) return false;
@@ -3632,7 +3659,7 @@
             const afternoonChoices = {};
 
             Object.entries(parsedChoices).forEach(([emp, choice]) => {
-                let chNorm = choice.trim().toUpperCase();
+                let chNorm = normalizeFdoChoice(choice, isMorning);
                 if (isMorning) {
                     if (chNorm.startsWith('M') && !isNaN(chNorm.slice(1)) && !chNorm.includes('/')) {
                         chNorm = chNorm.slice(1);
@@ -3690,7 +3717,7 @@
                 row.className = 'preview-row';
                 
                 row.innerHTML = `
-                    <div class="preview-slot-id">${log.id}</div>
+                    <div class="preview-slot-id">${log.label || log.id}</div>
                     <div>
                         <input type="text" class="preview-slot-name ${filledClass}" 
                                value="${empDisplay === '-' ? '' : empDisplay}" 

@@ -29,6 +29,20 @@ for (const type of ['M8/A14', 'A+N']) {
         }
     }
 }
+run("selectedShift = { date: '2026-11-01', shift_type: 'A+N' };");
+assert.equal(run("getShiftPreviewLogs().filter(log => log.id.startsWith('FDO')).map(log => log.label).join(',')"), 'FDO N1,FDO N2,FDO N3,FDO N4,FDO N5');
+assert.equal(run("validateChoiceFormat('FDO N2', false)"), true);
+assert.equal(run("normalizeFdoChoice('FDO N1', false)"), 'FDO A');
+assert.equal(run("normalizeFdoChoice('FDO N2', false)"), 'FDO A2');
+assert.equal(run("normalizeFdoChoice('N1', false)"), 'N1');
+assert.equal(run("formatChoiceForEmployee('AA', 'FDO N2', false)"), 'FDO A2');
+run("selectedShift = { date: '2026-11-01', shift_type: 'M8/A14' };");
+assert.equal(run("getShiftPreviewLogs().filter(log => log.id.startsWith('FDO')).map(log => log.label).join(',')"), 'FDO M1,FDO M2,FDO M3');
+assert.equal(run("normalizeFdoChoice('FDO M1', true)"), 'FDO1');
+assert.equal(run("normalizeFdoChoice('M1', true)"), 'M1');
+run("selectedShift = { date: '2026-10-31', shift_type: 'A+N' };");
+assert.equal(run("validateChoiceFormat('FDO A2', false)"), false);
+assert.equal(run("getShiftPreviewLogs().some(log => log.id === 'FDO A2')"), false);
 assert.equal(run(`getQueueWorkingLimit('2026-10-31', 'A+N')`), 13);
 assert.equal(run(`getQueueWorkingLimit('2026-11-01', 'A+N')`), 14);
 assert.equal(run(`getQueueWorkingLimit('2026-11-01', 'M8/A14')`), 13);

@@ -243,12 +243,22 @@ def parse_custom_log_map(custom_log_val):
             custom_rows_map[str(slot_val).strip().upper()] = row_data
     return custom_rows_map
 
+def normalize_fdo_choice(choice, is_morning):
+    value = str(choice).strip().upper()
+    compact = ''.join(value.split())
+    aliases = ({'FDOM1': 'FDO1', 'FDOM2': 'FDO2', 'FDOM3': 'FDO3'} if is_morning else {
+        'FDON1': 'FDO A', 'FDON2': 'FDO A2', 'FDON3': 'FDO2',
+        'FDON4': 'FDO1', 'FDON5': 'FDO3', 'FDOA': 'FDO A', 'FDOA2': 'FDO A2',
+    })
+    return aliases.get(compact, value)
+
+
 def build_choice_maps(selections, is_morning):
     morning_choice_to_emp = {}
     afternoon_choice_to_emp = {}
 
     for emp, choice in selections.items():
-        ch_norm = str(choice).strip().upper()
+        ch_norm = normalize_fdo_choice(choice, is_morning)
         if is_morning:
             if ch_norm.endswith('/-') and ch_norm.startswith('W/S'):
                 morning_choice_to_emp[ch_norm[:-2]] = emp
@@ -297,7 +307,7 @@ def resolve_employee_for_slot(slot_str, slot_id, is_morning, morning_choice_to_e
         emp = morning_choice_to_emp.get(slot_id, "")
     elif slot_str == "W/S N" and "W/S N" in morning_choice_to_emp:
         emp = morning_choice_to_emp["W/S N"]
-    elif slot_id in ["FDO A", "FDO1", "FDO2", "FDO3"]:
+    elif slot_id.startswith("FDO"):
         emp = morning_choice_to_emp.get(slot_id, "")
     else:
         emp = ""

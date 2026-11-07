@@ -162,7 +162,7 @@
                 `;
                 tbody.appendChild(r2);
 
-                const afternoonRows = data.rows.filter(row => /^A\d+$/.test(row.slot_id) || row.slot_id === 'FDO A');
+                const afternoonRows = data.rows.filter(row => row.section === 'afternoon' || /^A\d+$/.test(row.slot_id) || row.slot_id === 'FDO A');
                 afternoonRows.forEach((row, rIdx) => {
                     const tr = document.createElement('tr');
                     const isLastRow = (rIdx === afternoonRows.length - 1);
@@ -203,7 +203,7 @@
                 `;
                 tbody.appendChild(r4);
 
-                const nightRows = data.rows.filter(row => !/^A\d+$/.test(row.slot_id) && row.slot_id !== 'FDO A');
+                const nightRows = data.rows.filter(row => row.section !== 'afternoon' && !/^A\d+$/.test(row.slot_id) && row.slot_id !== 'FDO A');
                 nightRows.forEach((row, rIdx) => {
                     const tr = document.createElement('tr');
                     const isLastRow = (rIdx === nightRows.length - 1);

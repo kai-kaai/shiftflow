@@ -1975,40 +1975,36 @@ def _build_november_2026_templates():
         for cell in row['cells']:
             cell['value'] = cell['value'].replace('GMC+F2', 'GMC')
 
-    def fdo_row(slot_id, values, hours, start=0, background='#BFBFBF'):
+    def fdo_row(slot_id, label, active_hours, hours, color, label_color, section):
         return {
-            'slot': slot_id.replace('FDO', 'FDO '), 'slot_id': slot_id,
-            'slot_bg': '#999999', 'employee_bg': '#999999',
+            'slot': label, 'slot_id': slot_id, 'section': section,
+            'slot_bg': label_color, 'employee_bg': label_color,
             'cells': [
-                {'value': values.get(i, ''), 'bg_color': background if i >= start else None}
+                {'value': 'FDO' if i in active_hours else '',
+                 'bg_color': color if i in active_hours else '#FFFFFF'}
                 for i in range(hours)
             ]
         }
 
-    # F1/F2 duties are now shared by three FDO positions.
+    # Keep assignment IDs stable while showing the FDO labels from the reference.
     morning['rows'] = [row for row in morning['rows'] if row['slot_id'] not in ('FDO1', 'FDO2')]
     morning['rows'][-1:-1] = [
-        fdo_row('FDO1', {0: 'F1', 1: 'F2', 3: 'F1', 4: 'F2', 6: 'F1', 7: 'F2', 9: 'F2'}, 14),
-        fdo_row('FDO2', {1: 'F1', 2: 'F2', 4: 'F1', 5: 'F2', 7: 'F1', 8: 'F2', 9: 'F1', 10: 'F2'}, 14),
-        fdo_row('FDO3', {0: 'F2', 2: 'F1', 3: 'F2', 5: 'F1', 6: 'F2', 8: 'F1', 10: 'F1'}, 14),
+        fdo_row('FDO1', 'M1', {0, 1, 3, 4, 6, 7, 9, 10}, 14, '#BFE0CE', '#BDD6AC', 'morning'),
+        fdo_row('FDO2', 'M2', {1, 2, 4, 5, 7, 8, 10, 11}, 14, '#BFE0CE', '#BDD6AC', 'morning'),
+        fdo_row('FDO3', 'M3', {0, 2, 3, 5, 6, 8, 9, 11}, 14, '#BFE0CE', '#BDD6AC', 'morning'),
     ]
-
-    for row in morning['rows']:
-        if row['slot_id'].startswith('FDO'):
-            for cell in row['cells'][12:]:
-                cell['bg_color'] = None
 
     an = templates['A+N']
     rows = {row['slot_id']: row for row in an['rows']}
     afternoon_values = [
-        ['GNN', 'CDC', 'LCL', '', '', ''],
-        ['GMC', 'LCL', 'CDC', '', '', ''],
-        ['', 'GMC', 'GND', 'LCL', '', ''],
-        ['', 'GND', 'GMC', 'GND', '', ''],
-        ['', '', '', 'GMC', 'LCL+CDC', 'GND+GMC'],
-        ['', '', '', 'CDC', 'GND+GMC', 'LCL+CDC'],
+        ['GNN', 'CDC+GMC', 'LCL', '', '', ''],
+        ['GMC', 'LCL', 'GND', '', '', ''],
+        ['', 'GND', 'CDC+GMC', 'GND', '', ''],
+        ['', '', '', 'CDC', 'LCL', 'CDC+GMC'],
+        ['', '', '', 'GMC', 'GND', 'LCL'],
+        ['', '', '', 'LCL', 'CDC+GMC', 'GND'],
     ]
-    active_hours = [{0, 1}, {0, 1, 2}, {1, 2, 3}, {1, 2, 3}, {3, 4, 5}, {3, 4, 5}]
+    active_hours = [{0, 1, 2}, {0, 1, 2}, {1, 2, 3}, {3, 4, 5}, {3, 4, 5}, {3, 4, 5}]
     afternoon = []
     for idx, values in enumerate(afternoon_values, 1):
         row = copy.deepcopy(rows['A1'])
@@ -2019,28 +2015,25 @@ def _build_november_2026_templates():
             for i in range(13)
         ]
         afternoon.append(row)
-    fdo_a = copy.deepcopy(rows['FDO A'])
-    fdo_a['cells'] = [
-        {'value': 'FDO' if 1 <= i <= 4 else '',
-         'bg_color': ('#999999' if 1 <= i <= 4 else '#CCCCCC') if i < 6 else None}
-        for i in range(13)
-    ]
     night = [copy.deepcopy(rows[f'N{i}']) for i in range(1, 8)]
     night[2]['cells'][7]['value'] = 'GMC'
     night[2]['cells'][10]['value'] = ''
     night[3]['cells'][6]['value'] = 'GMC'
     night[3]['cells'][8]['value'] = 'CDC+GMC'
-    an['rows'] = afternoon + [fdo_a] + night + [
-        fdo_row('FDO1', {3: 'FDO', 4: 'FDO', 11: 'FDO', 12: 'FDO'}, 13, 3, '#CCCCCC'),
-        fdo_row('FDO2', {5: 'FDO', 6: 'FDO', 7: 'FDO', 8: 'FDO'}, 13, 3, '#CCCCCC'),
-        fdo_row('FDO3', {9: 'FDO', 10: 'FDO', 11: 'FDO', 12: 'FDO'}, 13, 3, '#CCCCCC'),
+    an['rows'] = afternoon + [
+        fdo_row('FDO A', 'N1', {1, 2, 3, 4}, 13, '#CCDAF5', '#CCDAF5', 'afternoon'),
+        fdo_row('FDO A2', 'N2', {1, 2, 3, 4}, 13, '#CCDAF5', '#CCDAF5', 'afternoon'),
+    ] + night + [
+        fdo_row('FDO2', 'N3', {5, 6, 7, 8}, 13, '#CCDAF5', '#CCDAF5', 'night'),
+        fdo_row('FDO1', 'N4', {5, 6, 11, 12}, 13, '#CCDAF5', '#CCDAF5', 'night'),
+        fdo_row('FDO3', 'N5', {9, 10, 11, 12}, 13, '#CCDAF5', '#CCDAF5', 'night'),
         copy.deepcopy(rows['W/S N']),
     ]
     for row in an['rows']:
-        if row['slot_id'].startswith('FDO') and row['slot_id'] != 'FDO A':
+        if row['slot_id'].startswith('FDO'):
+            row['slot_bg'] = row['employee_bg'] = '#999999'
             for cell in row['cells']:
-                if cell['value']:
-                    cell['bg_color'] = '#999999'
+                cell['bg_color'] = '#999999' if cell['value'] else '#CCCCCC'
     return templates
 
 
