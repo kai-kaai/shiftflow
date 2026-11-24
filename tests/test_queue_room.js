@@ -70,3 +70,25 @@ for (const type of ['M8/A14', 'A+N']) {
     assert.equal(run(`queueRoomColumns[1].queue.at(-1)`), 'E2');
 }
 console.log('PASS: historical/new preview choices, 13/14 staff limits, separate cache keys, and Run Que for both shift groups');
+
+for (const month of [12, 13]) {
+    for (const type of ['M8/A14', 'A+N']) {
+        for (const count of [14, 15, 16]) {
+            run(`
+                queueRoomYear = ${month === 13 ? 2027 : 2026};
+                queueRoomMonth = ${month === 13 ? 1 : month};
+                queueRoomShiftType = '${type}';
+                queueRoomColumns = listTeamWorkColumns('purple', queueRoomYear, queueRoomMonth, queueRoomGroup());
+                queueRoomRoster = Array.from({ length: ${count} }, (_, i) => ({ initials: 'E' + i, working: i < ${count - 1} }));
+                renderQueueRoster = () => {};
+                toggleQueueRosterWorking(${count - 1});
+                queueRoomColumns[0].queue = ['E2'];
+                runQueueRoomQue();
+            `);
+            assert.equal(run('countWorkingRoster()'), count);
+            assert.equal(run(`queueRoomColumns.every(col => col.queue.length === ${count})`), true);
+            assert.equal(run('queueRoomColumns[1].queue[0]'), 'E3');
+        }
+    }
+}
+console.log('PASS: December and future extra workers can be selected and included in Run Que');

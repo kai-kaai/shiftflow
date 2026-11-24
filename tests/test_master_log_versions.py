@@ -98,6 +98,18 @@ class MasterLogVersionTests(unittest.TestCase):
         self.assertEqual(self.plan('A+N', '2026-12')['roster'], night['roster'])
         self.assertEqual(self.plan('M8/A14', '2026-12')['roster'], morning['roster'])
 
+    def test_december_extra_workers_persist_and_carry_forward(self):
+        for group in ('M8/A14', 'A+N'):
+            for count in (14, 15, 16):
+                with self.subTest(group=group, count=count):
+                    response = self.save(group, count, month='2026-12', team='extra')
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(len(response.json['roster']), count)
+                    self.assertEqual(len(self.plan(group, '2026-12', 'extra')['roster']), count)
+                    self.assertEqual(len(self.plan(group, '2027-01', 'extra')['roster']), count)
+        self.assertEqual(self.save('M8/A14', 14, month='2026-11').status_code, 400)
+        self.assertEqual(self.save('A+N', 15, month='2026-11').status_code, 400)
+
     def test_afternoon_reference_and_night_fdo_hours(self):
         response = self.client.get('/api/templates/A_N/hourly-log?date=2026-11-01')
         self.assertEqual(response.status_code, 200)

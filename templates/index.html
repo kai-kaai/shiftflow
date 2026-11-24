@@ -342,6 +342,10 @@
             return getQueueWorkingLimit(`${getQueueRoomYearMonth()}-01`, queueRoomShiftType);
         }
 
+        function queueRoomAllowsExtraWorkers() {
+            return getQueueRoomYearMonth() >= '2026-12';
+        }
+
         function queueRoomGroup() {
             return getQueueShiftGroup(getQueueRoomYearMonth(), queueRoomShiftType);
         }
@@ -924,7 +928,7 @@
         function toggleQueueRosterWorking(index) {
             const person = queueRoomRoster[index];
             if (!person) return;
-            if (!person.working && countWorkingRoster() >= queueRoomWorkingLimit()) {
+            if (!person.working && !queueRoomAllowsExtraWorkers() && countWorkingRoster() >= queueRoomWorkingLimit()) {
                 showToast(`เลือกคนทำงานได้สูงสุด ${queueRoomWorkingLimit()} คน`, 'warning');
                 return;
             }
@@ -975,8 +979,8 @@
             const total = queueRoomRoster.length;
             if (countEl) {
                 countEl.innerText = `ทำงาน ${workingCount} / ${queueRoomWorkingLimit()} คน · สมาชิก ${total} คน`;
-                countEl.classList.toggle('is-ready', workingCount === queueRoomWorkingLimit());
-                countEl.classList.toggle('is-over', workingCount > queueRoomWorkingLimit());
+                countEl.classList.toggle('is-ready', workingCount >= queueRoomWorkingLimit());
+                countEl.classList.toggle('is-over', !queueRoomAllowsExtraWorkers() && workingCount > queueRoomWorkingLimit());
             }
 
             if (copyHint) {
@@ -1002,7 +1006,7 @@
             }
             if (empty) empty.style.display = 'none';
 
-            const workingFull = workingCount >= queueRoomWorkingLimit();
+            const workingFull = !queueRoomAllowsExtraWorkers() && workingCount >= queueRoomWorkingLimit();
             list.innerHTML = queueRoomRoster.map((person, index) => {
                 const displayName = person.working ? person.initials : `(${person.initials})`;
                 const canEnable = person.working || !workingFull;
@@ -1103,7 +1107,7 @@
             updateQueueRoomMonthLabel();
             const yearMonth = getQueueRoomYearMonth();
             document.getElementById('queue-room-shift-label').hidden = !queueRoomGroup();
-            document.getElementById('queue-room-working-limit').textContent = `${queueRoomWorkingLimit()} คน`;
+            document.getElementById('queue-room-working-limit').textContent = `${queueRoomAllowsExtraWorkers() ? "อย่างน้อย " : ""}${queueRoomWorkingLimit()} คน`;
             const skeleton = listTeamWorkColumns(queueRoomTeamId, queueRoomYear, queueRoomMonth, queueRoomGroup());
 
             showLoading(true);
@@ -1297,7 +1301,7 @@
             const working = typeof getWorkingRosterInitials === 'function'
                 ? getWorkingRosterInitials(queueRoomRoster)
                 : queueRoomRoster.filter(person => person.working).map(person => person.initials);
-            if (working.length !== queueRoomWorkingLimit()) {
+            if (working.length < queueRoomWorkingLimit() || (!queueRoomAllowsExtraWorkers() && working.length !== queueRoomWorkingLimit())) {
                 showToast(`ต้องเลือกคนทำงานให้ครบ ${queueRoomWorkingLimit()} คนก่อน (ตอนนี้ ${working.length} คน)`, 'warning');
                 return;
             }
@@ -1308,13 +1312,13 @@
                 return;
             }
             if (!working.includes(start)) {
-                showToast(`ชื่อ ${start} ไม่ได้อยู่ใน ${queueRoomWorkingLimit()} คนที่ทำงานเดือนนี้`, 'warning');
+                showToast(`ชื่อ ${start} ไม่ได้อยู่ใน ${working.length} คนที่ทำงานเดือนนี้`, 'warning');
                 return;
             }
 
             const hasLaterData = queueRoomColumns.slice(1).some(c => c.queue && c.queue.length > 0);
             const firstColRest = (queueRoomColumns[0].queue || []).slice(1).some(name => String(name || '').trim());
-            if ((hasLaterData || firstColRest) && !confirm(`มีคิวในตารางอยู่แล้ว จะเขียนทับทั้งเดือนด้วย ${queueRoomWorkingLimit()} คนที่ทำงานหรือไม่?`)) {
+            if ((hasLaterData || firstColRest) && !confirm(`มีคิวในตารางอยู่แล้ว จะเขียนทับทั้งเดือนด้วย ${working.length} คนที่ทำงานหรือไม่?`)) {
                 return;
             }
 

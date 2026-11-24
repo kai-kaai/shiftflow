@@ -451,7 +451,7 @@ def _normalize_roster(raw_roster, working_limit=13):
         seen.add(initials)
         if working:
             working_count += 1
-            if working_count > working_limit:
+            if working_limit is not None and working_count > working_limit:
                 return None, f"เลือกคนทำงานได้สูงสุด {working_limit} คน"
         normalized.append({"initials": initials, "working": working})
     return normalized, None
@@ -502,7 +502,7 @@ def _queue_plan(cursor, team_id, year_month, group):
             (team_id, year_month))
         row = cursor.fetchone()
     limit = queue_working_limit(year_month, group)
-    roster = _parse_saved_roster(row['roster_json'], limit) if row else None
+    roster = _parse_saved_roster(row['roster_json'], None if year_month >= '2026-12' else limit) if row else None
     copied_from = None
     if roster is None:
         cursor.execute(
@@ -512,7 +512,7 @@ def _queue_plan(cursor, team_id, year_month, group):
             (team_id, year_month, group, group))
         for previous in cursor.fetchall():
             # After the change, carry forward only this group's roster or a legacy combined roster.
-            roster = _parse_saved_roster(previous['roster_json'], limit)
+            roster = _parse_saved_roster(previous['roster_json'], None if year_month >= '2026-12' else limit)
             if roster is not None:
                 copied_from = previous['year_month']
                 break
@@ -561,7 +561,7 @@ def get_team_month_queues():
             plans.append({
                 'team_id': row['team_id'], 'year_month': row['year_month'], 'shift_type': group,
                 'columns': _columns_from_row(row, group),
-                'roster': _parse_saved_roster(row['roster_json'], queue_working_limit(row['year_month'], group)) or [],
+                'roster': _parse_saved_roster(row['roster_json'], None if row['year_month'] >= '2026-12' else queue_working_limit(row['year_month'], group)) or [],
                 'updated_at': row['updated_at'],
             })
         return jsonify({'plans': plans})
@@ -582,7 +582,7 @@ def put_team_month_queues():
     limit = queue_working_limit(year_month, group)
     roster = None
     if 'roster' in data:
-        roster, error = _normalize_roster(data['roster'], limit)
+        roster, error = _normalize_roster(data['roster'], None if year_month >= '2026-12' else limit)
         if error:
             return jsonify({'error': error}), 400
     ensure_employees_exist([name for col in columns for name in col['queue']] +
